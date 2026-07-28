@@ -1,0 +1,19 @@
+# Compiled python files
+*.pyc
+__pycache__/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE or OS-specific files
+.idea/
+.vscode/
+.DS_Store
