@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cluster_utils"
+version = "0.0.1"
+authors = [
+  { name="Steven Marshall", email="stevenmarshall@uvic.ca" },
+]
+description = "Utilities for working with Digital Research Alliance of Canada clusters."
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Homepage = "https://github.com/StevenMarshallUVic/cluster-utils"
+Issues = "https://github.com/StevenMarshallUVic/cluster-utils/issues"
