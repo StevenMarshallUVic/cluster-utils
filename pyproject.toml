@@ -3,7 +3,7 @@ requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cluster_utils"
+name = "cam_cluster_utils"
 version = "0.0.1"
 authors = [
   { name="Steven Marshall", email="stevenmarshall@uvic.ca" },
