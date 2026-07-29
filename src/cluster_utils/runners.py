@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
-from data import ArrayJobData, Paths, SlurmParams
-from utils import create_logger, run_subprocess_command
+from cluster_utils.data import ArrayJobData, Paths, SlurmParams
+from cluster_utils.utils import create_logger, run_subprocess_command
 
 
 logger = create_logger(__file__)

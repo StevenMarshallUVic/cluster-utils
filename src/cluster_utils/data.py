@@ -6,7 +6,7 @@ from math import ceil
 from pathlib import Path
 from typing import Any
 
-from utils import ArgParseable, JsonSerializable, create_logger
+from cluster_utils.utils import ArgParseable, JsonSerializable, create_logger
 
 logger = create_logger(__file__)
 
