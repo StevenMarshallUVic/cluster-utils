@@ -1,3 +1,5 @@
+"""Utilities used when running jobs on a cluster."""
+
 import argparse
 import enum
 import json
@@ -11,16 +13,44 @@ from typing import Any
 
 
 class _RunnerStage(StrEnum):
+    """Stages of cluster program."""
+
     FOREGROUND = auto()
+    """Stage performed on the main thread of the running job."""
     BACKGROUND = auto()
+    """Stage performed in a background process."""
     COMPUTE = auto()
+    """Stage performed on a cluster's compute node."""
 
 
 def run_subprocess_command(
         args: str | Path | list[str | Path],
         logger: logging.Logger | None = None,
+        output_logging_level: int = logging.DEBUG,
 ) -> bool:
-    log_output = logger.isEnabledFor(logging.DEBUG) if logger else False
+    """
+
+    Parameters
+    ----------
+    args
+        Command to execute in the subprocess.
+    logger
+        (Optional) Logger to use for writing output.
+        If not supplied, uses print to write output.
+    output_logging_level
+        Maximum logging level up to which command output should be written.
+        For example, setting `output_logging_level=logging.INFO` will write the
+        output of the command as long as the provided logger's level is INFO
+        or lower.
+        Does nothing if `logger` is not supplied.
+
+    Returns
+    -------
+    bool
+        Whether the subprocess command returned a 0 return code.
+    """
+
+    log_output = logger.isEnabledFor(output_logging_level) if logger else False
     with subprocess.Popen(
         args,
         stdout=subprocess.PIPE if log_output else subprocess.DEVNULL,
@@ -51,18 +81,59 @@ def run_subprocess_command(
 
 
 class ClusterJsonEncoder(json.JSONEncoder, ABC):
-    """JSON encoder for serializing non-standard variables."""
+    """JSON encoder for serializing and deserializing non-standard variables."""
 
     @classmethod
-    def custom_encode(cls, item) -> Any:
+    def custom_encode(cls, item) -> Any | None:
+        """Virtual method that can be overridden in child classes to add
+        custom encoding logic.
+
+        Parameters
+        ----------
+        item
+            Item to attempt to encode.
+
+        Returns
+        -------
+        Any
+            Encoded item,
+            or None if item was not supported by custom encoding logic.
+        """
         return None
 
     @classmethod
-    def custom_decode(cls, item) -> Any:
+    def custom_decode(cls, item) -> Any | None:
+        """Virtual method that can be overridden in child classes to add
+        custom decoding logic.
+
+        Parameters
+        ----------
+        item
+            Item to attempt to decode.
+
+        Returns
+        -------
+        Any
+            Decoded item,
+            or None if item was not supported by custom decoding logic.
+        """
         return None
 
     @classmethod
-    def _transform(cls, item):
+    def _encode(cls, item) -> Any:
+        """Extra JSON encoding to add support for additional types.
+
+        Parameters
+        ----------
+        item
+            Item to encode.
+
+        Returns
+        -------
+        Any
+            Encoded item.
+        """
+
         custom_encode = cls.custom_encode(item)
         if custom_encode is not None:
             return custom_encode
@@ -72,22 +143,34 @@ class ClusterJsonEncoder(json.JSONEncoder, ABC):
         if isinstance(item, _RunnerStage):
             return {"__type__": "RunnerStage", "value": str(item)}
         if isinstance(item, tuple):
-            return {"__type__": "tuple", "value": [cls._transform(i) for i in item]}
+            return {"__type__": "tuple", "value": [cls._encode(i) for i in item]}
         if isinstance(item, dict):
-            return {k: cls._transform(v) for k, v in item.items()}
+            return {k: cls._encode(v) for k, v in item.items()}
         if isinstance(item, list):
-            return [cls._transform(i) for i in item]
+            return [cls._encode(i) for i in item]
         return item
 
     def iterencode(self, o: Any, _one_shot=False):
-        return super().iterencode(self._transform(o), _one_shot=_one_shot)
+        return super().iterencode(self._encode(o), _one_shot=_one_shot)
 
     def encode(self, o: Any) -> str:
-        return super().encode(_transform(o))
+        return super().encode(self._encode(o))
 
     @classmethod
     def decode(cls, item):
-        """Custom hook to reconstruct variables from JSON dictionaries."""
+        """Decode JSON using metadata added during custom encoding.
+
+        Parameters
+        ----------
+        item
+            Item to attempt to decode.
+
+        Returns
+        -------
+        Any
+            Decoded item.
+        """
+
         if "__type__" in item:
             custom_decode = cls.custom_decode(item)
             if custom_decode is not None:
@@ -148,16 +231,37 @@ class EnumAction(argparse.Action):
 
 @dataclass(frozen=True)
 class JsonSerializable(ABC):
+    """Interface for adding JSON serialization support to a dataclass."""
+
     @classmethod
-    def json_encoder(cls) -> type[json.JSONEncoder] | None:
+    def json_encoder(cls) -> type[json.JSONEncoder]:
+        """Virtual method that allows child classes to override default encoder.
+        """
         return ClusterJsonEncoder
 
     def to_json(self, output_json: Path) -> None:
+        """Write JSON file with all fields of dataclass serialized as a
+        dictionary.
+
+        Parameters
+        ----------
+        output_json
+            Path to write JSON file to.
+        """
+
         with open(output_json, "w") as json_file:
             json.dump(asdict(self), json_file, cls=self.json_encoder())
 
     @classmethod
     def from_json(cls, input_json: Path):
+        """Create instance of dataclass with fields populated from JSON file.
+
+        Parameters
+        ----------
+        input_json
+            JSON file to read data from.
+        """
+
         with open(input_json, "r") as json_file:
             # noinspection argument-list
             return cls(**json.load(
@@ -168,13 +272,7 @@ class JsonSerializable(ABC):
 
 @dataclass(frozen=True)
 class ArgParseable(ABC):
-    """
-    Base class for dataclasses that can be constructed from argparse.Namespace.
-
-    Subclasses must:
-    - Be a dataclass
-    - Implement argument_parser()
-    """
+    """Interface for adding argument parsing support to a dataclass."""
 
     @staticmethod
     @abstractmethod
@@ -182,6 +280,7 @@ class ArgParseable(ABC):
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
     ) -> None:
+        """Abstract method for adding arguments to an argument parser."""
         raise NotImplementedError
 
     @classmethod
@@ -190,12 +289,23 @@ class ArgParseable(ABC):
             args: argparse.Namespace,
             **fallbacks: Any,
     ):
-        """
-        Generic constructor that:
-        - Uses args.<field> if present and not None
-        - Otherwise falls back to provided keyword arguments
-        - Otherwise uses dataclass defaults
-        - Raises if required fields are missing
+        """Create instance of dataclass by populating fields from command line
+        arguments, using fallback values if arguments are not provided.
+
+        Parameters
+        ----------
+        args
+            Command line arguments to parse.
+        **fallbacks
+            Keyword arguments of fallback values to be used for fields not
+            supplied in `args`.
+
+        Raises
+        ------
+        ValueError
+            If a value was not found in `args`, a fallback was not supplied,
+            and there was not a default value assigned for the field at the
+            dataclass-level.
         """
 
         init_values: dict[str, Any] = {}

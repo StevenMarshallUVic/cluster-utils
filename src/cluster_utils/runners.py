@@ -1,3 +1,5 @@
+"""Classes for running jobs on a cluster."""
+
 import argparse
 import logging
 import subprocess
@@ -13,20 +15,30 @@ logger = logging.getLogger(Path(__file__).name)
 
 
 class LoginForegroundRunner(ABC):
+    """Abstract class that handles running the portion of a run that occurs
+    on the main thread."""
+
     @property
     @abstractmethod
     def paths(self) -> Paths:
+        """Abstract method for specifying Paths class or subclass."""
         pass
 
-    def run_foreground(self):
+    def run_foreground(self) -> None:
+        """Perform foreground portion of run."""
+
         self._initialize_foreground()
         self._run_in_background()
 
     @abstractmethod
-    def _initialize_foreground(self):
+    def _initialize_foreground(self) -> None:
+        """Abstract method for initializing a run in the foreground."""
+
         pass
 
-    def _run_in_background(self):
+    def _run_in_background(self) -> None:
+        """Perform rest of run in the background."""
+
         # sys.executable to use current python environment
         command = [
             sys.executable,
@@ -49,24 +61,34 @@ class LoginForegroundRunner(ABC):
 
 @dataclass(frozen=True)
 class LoginBackgroundRunner(ABC):
+    """Abstract class that handles running the portion of a run that occurs
+    in the background."""
+
     paths: Paths
     slurm_params: SlurmParams
 
     @property
     @abstractmethod
     def is_array_job(self) -> bool:
+        """Abstract property for specifying whether the slurm job should be
+         submitted as an array job or a single job."""
         pass
 
     @property
     @abstractmethod
     def slurm_job_name(self) -> str:
+        """Abstract property for specifying the name of the slurm job."""
         return f"{self.paths.project_name().lower()}-compute"
 
     @property
     def extra_job_wrap_args(self) -> list[str]:
+        """Virtual property for specifying extra arguments to pass to the
+        compute job."""
         return []
 
     def run_background(self):
+        """Perform background portion of run."""
+
         self._initialize_background()
         if self.is_array_job:
             self._submit_array_job()
@@ -75,9 +97,12 @@ class LoginBackgroundRunner(ABC):
         self._post_process_background()
 
     def _initialize_background(self) -> None:
+        """Virtual method for initializing a run in the background."""
         pass
 
     def _submit_array_job(self) -> None:
+        """Submit a slurm array job to handle the compute portion of the job."""
+
         wrap_args = " ".join(subprocess.list2cmdline([arg]) for arg in [
             self.paths.cluster_compute_shell_script,
             "--paths-json", self.paths.attempt_paths_json,
@@ -110,50 +135,67 @@ class LoginBackgroundRunner(ABC):
         logger.info("Slurm jobs completed!")
 
     def _submit_single_job(self) -> None:
+        """Submit a single slurm job to handle the compute portion of the job.
+        """
         raise NotImplementedError()
 
     def _post_process_background(self) -> None:
+        """Virtual method for performing post-processing in the background
+        after the compute stage completes."""
         pass
 
 
 @dataclass(frozen=True)
 class ComputeRunner(ABC):
+    """Abstract class that handles running the portion of a run that occurs
+    on a cluster's compute node."""
+
     compute_dir: Path
     job_data: ArrayJobData
 
     @property
-    def compute_input_dir(self):
+    def compute_input_dir(self) -> Path:
+        """Path to input directory on the compute node."""
         return self.compute_dir / "input"
 
     @property
-    def compute_output_dir(self):
+    def compute_output_dir(self) -> Path:
+        """Path to output directory on the compute node."""
         return self.compute_dir / "output"
 
     @abstractmethod
     def perform_compute(self):
+        """Abstract method for performing the compute logic on the compute node.
+        """
         pass
 
 
 @dataclass(frozen=True)
 class ClusterRunners(ABC):
+    """Manager class for orchestrating which stage to run."""
+
     _stage: _RunnerStage
 
     @property
     @abstractmethod
     def login_foreground_runner(self) -> LoginForegroundRunner:
+        """Abstract property for specifying which foreground runner to use."""
         pass
 
     @property
     @abstractmethod
     def login_background_runner(self) -> LoginBackgroundRunner:
+        """Abstract property for specifying which background runner to use."""
         pass
 
     @property
     @abstractmethod
     def compute_runner(self) -> ComputeRunner:
+        """Abstract property for specifying which compute runner to use."""
         pass
 
     def run_stage(self):
+        """Perform stage of program."""
         match self._stage:
             case _RunnerStage.FOREGROUND:
                 self.login_foreground_runner.run_foreground()
@@ -166,6 +208,8 @@ class ClusterRunners(ABC):
 
     @classmethod
     def from_args(cls):
+        """Create an instance populated with command line arguments."""
+
         parser = argparse.ArgumentParser(
             prog="Cluster Runners",
             description="Handles running the different stages of a program on "
