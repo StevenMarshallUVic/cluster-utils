@@ -154,7 +154,6 @@ class ClusterRunners(ABC):
         pass
 
     def run_stage(self):
-        print(f"Running stage {self._stage}...")
         match self._stage:
             case _RunnerStage.FOREGROUND:
                 self.login_foreground_runner.run_foreground()
