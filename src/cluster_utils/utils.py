@@ -3,18 +3,17 @@ import enum
 import json
 import logging
 import subprocess
-import sys
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, fields, MISSING
+from enum import StrEnum, auto
 from pathlib import Path
 from typing import Any
 
 
-def create_logger(file: str, level: int | str = logging.DEBUG) -> logging.Logger:
-    logging.basicConfig(level=level, stream=sys.stdout)
-    _logger = logging.getLogger(Path(file).name)
-    _logger.setLevel(level)
-    return _logger
+class _RunnerStage(StrEnum):
+    FOREGROUND = auto()
+    BACKGROUND = auto()
+    COMPUTE = auto()
 
 
 def run_subprocess_command(
@@ -70,6 +69,8 @@ class ClusterJsonEncoder(json.JSONEncoder, ABC):
 
         if isinstance(item, Path):
             return {"__type__": "Path", "value": str(item)}
+        if isinstance(item, _RunnerStage):
+            return {"__type__": "RunnerStage", "value": str(item)}
         if isinstance(item, tuple):
             return {"__type__": "tuple", "value": [cls._transform(i) for i in item]}
         if isinstance(item, dict):
@@ -95,6 +96,8 @@ class ClusterJsonEncoder(json.JSONEncoder, ABC):
             match item["__type__"]:
                 case "Path":
                     return Path(item["value"])
+                case "RunnerStage":
+                    return _RunnerStage(item["value"])
                 case "tuple":
                     return tuple(item["value"])
                 case _:
@@ -116,9 +119,10 @@ class EnumAction(argparse.Action):
         # Ensure an Enum subclass is provided
         if enum_type is None:
             raise ValueError(
-                "type must be assigned an Enum when using EnumAction")
+                "'type' must be assigned an Enum when using EnumAction"
+            )
         if not issubclass(enum_type, enum.Enum):
-            raise TypeError("type must be an Enum when using EnumAction")
+            raise TypeError("'type' must be an Enum when using EnumAction")
 
         # Generate choices from the Enum
         kwargs.setdefault("choices", tuple(e.name for e in enum_type))

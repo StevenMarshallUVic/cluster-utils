@@ -1,4 +1,5 @@
 import argparse
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
@@ -6,9 +7,9 @@ from math import ceil
 from pathlib import Path
 from typing import Any
 
-from cluster_utils.utils import ArgParseable, JsonSerializable, create_logger
+from cluster_utils.utils import ArgParseable, JsonSerializable
 
-logger = create_logger(__file__)
+logger = logging.getLogger(Path(__file__).name)
 
 
 @dataclass(frozen=True)
@@ -105,31 +106,22 @@ class Paths(ArgParseable, JsonSerializable, ABC):
     PATHS_JSON_NAME = "paths.json"
     SLURM_PARAMS_JSON_NAME = "slurm_params.json"
 
+    #region Abstract Properties
     @classmethod
     @abstractmethod
     def project_name(cls) -> str:
         pass
 
+    @property
+    @abstractmethod
+    def runner_module_path(self) -> str:
+        pass
+    #endregion
+
     #region Project Directory
     @property
     def account_file(self):
         return self.project_dir / ".account.txt"
-
-    @property
-    def src_module_path(self) -> str:
-        return "src"
-
-    @property
-    def cluster_module_path(self) -> str:
-        return f"{self.src_module_path}.cluster"
-
-    @property
-    def login_background_module_path(self) -> str:
-        return f"{self.cluster_module_path}.login_background"
-
-    @property
-    def compute_module_path(self) -> str:
-        return f"{self.cluster_module_path}.compute"
     #endregion
 
     #region Scratch Directory

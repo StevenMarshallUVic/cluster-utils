@@ -1,3 +1,5 @@
+import argparse
+import logging
 import subprocess
 import sys
 from abc import ABC, abstractmethod
@@ -5,10 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cluster_utils.data import ArrayJobData, Paths, SlurmParams
-from cluster_utils.utils import create_logger, run_subprocess_command
+from cluster_utils.utils import EnumAction, _RunnerStage, run_subprocess_command
 
-
-logger = create_logger(__file__)
+logger = logging.getLogger(Path(__file__).name)
 
 
 class LoginForegroundRunner(ABC):
@@ -29,8 +30,9 @@ class LoginForegroundRunner(ABC):
         # sys.executable to use current python environment
         command = [
             sys.executable,
-            "-m", self.paths.login_background_module_path,
+            "-m", self.paths.runner_module_path,
             "--paths-json", self.paths.attempt_paths_json,
+            "--runner-stage", _RunnerStage.BACKGROUND.name,
         ]
 
         logger.info("Performing run in background. Logs can be found at "
@@ -80,8 +82,11 @@ class LoginBackgroundRunner(ABC):
             self.paths.cluster_compute_shell_script,
             "--paths-json", self.paths.attempt_paths_json,
             "--project-dir", self.paths.project_dir,
-            "--python-module-path", self.paths.compute_module_path,
+            "--python-module-path", self.paths.runner_module_path,
+            "--runner-stage", _RunnerStage.COMPUTE.name,
         ] + self.extra_job_wrap_args)
+        if logger.isEnabledFor(logging.DEBUG):
+            wrap_args += " --debug"
 
         logger.info("Waiting for slurm array job to complete...")
         run_subprocess_command([
@@ -127,3 +132,54 @@ class ComputeRunner(ABC):
     @abstractmethod
     def perform_compute(self):
         pass
+
+
+@dataclass(frozen=True)
+class ClusterRunners(ABC):
+    _stage: _RunnerStage
+
+    @property
+    @abstractmethod
+    def login_foreground_runner(self) -> LoginForegroundRunner:
+        pass
+
+    @property
+    @abstractmethod
+    def login_background_runner(self) -> LoginBackgroundRunner:
+        pass
+
+    @property
+    @abstractmethod
+    def compute_runner(self) -> ComputeRunner:
+        pass
+
+    def run_stage(self):
+        print(f"Running stage {self._stage}...")
+        match self._stage:
+            case _RunnerStage.FOREGROUND:
+                self.login_foreground_runner.run_foreground()
+            case _RunnerStage.BACKGROUND:
+                self.login_background_runner.run_background()
+            case _RunnerStage.COMPUTE:
+                self.compute_runner.perform_compute()
+            case _:
+                raise ValueError(f"Unsupported runner stage: {stage}.")
+
+    @classmethod
+    def from_args(cls):
+        parser = argparse.ArgumentParser(
+            prog="Cluster Runners",
+            description="Handles running the different stages of a program on "
+                        "a cluster.",
+            add_help=False,
+        )
+        parser.add_argument(
+            "--runner-stage",
+            help="Stage to perform for runner. Only for internal use.",
+            type=_RunnerStage,
+            default=_RunnerStage.FOREGROUND,
+            action=EnumAction,
+        )
+        args, _ = parser.parse_known_args()
+
+        return cls(_stage=args.runner_stage)
