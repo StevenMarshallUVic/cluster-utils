@@ -114,23 +114,26 @@ class LoginBackgroundRunner(ABC):
             wrap_args += " --debug"
 
         logger.info("Waiting for slurm array job to complete...")
-        run_subprocess_command([
-            "sbatch",
-            f"--job-name={self.slurm_job_name}",
-            f"--account={self.slurm_params.read_account_from_file(
-                self.paths.account_file
-            )}",
-            f"--cpus-per-task={self.slurm_params.cpus_per_task}",
-            f"--mem={self.slurm_params.memory}",
-            f"--time={self.slurm_params.time}",
-            f"--array=0-{ArrayJobData.find_greatest_array_job_index(
-                self.paths.attempt_array_job_data_dir,
-            )}",
-            f"--output={self.paths.compute_log_file}",
-            f"--error={self.paths.compute_log_file}",
-            "--wait",
-            f"--wrap={wrap_args}",
-        ])
+        run_subprocess_command(
+            args=[
+                "sbatch",
+                f"--job-name={self.slurm_job_name}",
+                f"--account={self.slurm_params.read_account_from_file(
+                    self.paths.account_file
+                )}",
+                f"--cpus-per-task={self.slurm_params.cpus_per_task}",
+                f"--mem={self.slurm_params.memory}",
+                f"--time={self.slurm_params.time}",
+                f"--array=0-{ArrayJobData.find_greatest_array_job_index(
+                    self.paths.attempt_array_job_data_dir,
+                )}",
+                f"--output={self.paths.compute_log_file}",
+                f"--error={self.paths.compute_log_file}",
+                "--wait",
+                f"--wrap={wrap_args}",
+            ],
+            logger=logger,
+        )
 
         logger.info("Slurm jobs completed!")
 
