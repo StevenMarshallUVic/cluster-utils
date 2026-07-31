@@ -584,6 +584,40 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         ], default=0) + 1
 
     @staticmethod
+    def compress_and_delete_dir(
+            compress_dir: Path,
+            fmt: str = "zip"
+    ) -> Path | None:
+        """Compress a directory and then delete the uncompressed directory.
+
+        Parameters
+        ----------
+        compress_dir
+            Directory to compress.
+        fmt
+            Format to compress to.
+
+        Returns
+        -------
+        Path
+            Path to compressed file.
+        """
+
+        shutil.make_archive(
+            base_name=str(compress_dir.with_suffix("")),
+            format=fmt,
+            root_dir=compress_dir,
+        )
+        zip_path = compress_dir.with_suffix(f".{fmt}")
+        if zip_path.is_file():
+            shutil.rmtree(compress_dir)
+        else:
+            logger.warning(f"Could not find {fmt} file at '{zip_path}'.")
+            return None
+
+        return zip_path
+
+    @staticmethod
     def add_arguments(
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
