@@ -103,6 +103,13 @@ class LoginBackgroundRunner(ABC):
     def _submit_array_job(self) -> None:
         """Submit a slurm array job to handle the compute portion of the job."""
 
+        max_array_index: int | None = ArrayJobData.find_greatest_array_job_index(
+            self.paths.attempt_array_job_data_dir,
+        )
+        if max_array_index is None:
+            logger.info("No jobs to run, skipping array job submission!")
+            return
+
         wrap_args = " ".join(subprocess.list2cmdline([arg]) for arg in [
             self.paths.cluster_compute_shell_script,
             "--paths-json", self.paths.attempt_paths_json,
@@ -124,9 +131,7 @@ class LoginBackgroundRunner(ABC):
                 f"--cpus-per-task={self.slurm_params.cpus_per_task}",
                 f"--mem={self.slurm_params.memory}",
                 f"--time={self.slurm_params.time}",
-                f"--array=0-{ArrayJobData.find_greatest_array_job_index(
-                    self.paths.attempt_array_job_data_dir,
-                )}",
+                f"--array=0-{max_array_index}",
                 f"--output={self.paths.compute_log_file}",
                 f"--error={self.paths.compute_log_file}",
                 "--wait",

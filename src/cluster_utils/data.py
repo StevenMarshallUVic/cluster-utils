@@ -633,7 +633,7 @@ class ArrayJobData(JsonSerializable):
     input_paths: tuple[Path, ...]
 
     @staticmethod
-    def find_greatest_array_job_index(array_job_data_dir: Path) -> int:
+    def find_greatest_array_job_index(array_job_data_dir: Path) -> int | None:
         """Find the greatest array job index in a directory.
 
         Parameters
@@ -646,9 +646,10 @@ class ArrayJobData(JsonSerializable):
         int
             Greatest array job index.
         """
-        return max([
-            int(file.stem) for file in array_job_data_dir.glob("*.json")
-        ])
+        return max(
+            [int(file.stem) for file in array_job_data_dir.glob("*.json")],
+            default=None,
+        )
 
     @staticmethod
     def build_json_path(array_job_data_dir: Path, array_job_index: int) -> Path:
