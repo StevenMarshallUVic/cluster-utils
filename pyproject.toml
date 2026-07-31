@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cam_cluster_utils"
-version = "0.2.0"
+version = "0.2.0b"
 authors = [
   { name="Steven Marshall", email="stevenmarshall@uvic.ca" },
 ]
@@ -17,8 +17,11 @@ classifiers = [
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.setuptools.package-data]
-shell_scripts = ["scripts/*.sh"]
+cluster_utils= ["scripts/*.sh"]
 
 [project.urls]
 Homepage = "https://github.com/StevenMarshallUVic/cluster-utils"
