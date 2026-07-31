@@ -502,10 +502,12 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         """
 
         runs_root_dir = cls.construct_runs_root_dir(scratch_dir)
-        run_name = cls.generate_run_name(runs_root_dir, input_path)
-
-        fallbacks["run_name"] = run_name
-        fallbacks["run_dir"] = runs_root_dir / run_name
+        args.run_name = cls.generate_run_name(
+            runs_root_dir,
+            input_path,
+            getattr(args, "run_name", None),
+        )
+        fallbacks["run_dir"] = runs_root_dir / args.run_name
 
         arg_parseable: ArgParseable = super()
         return arg_parseable.from_args(
@@ -515,7 +517,11 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         )
 
     @staticmethod
-    def generate_run_name(runs_root_dir: Path, input_path: Path) -> str:
+    def generate_run_name(
+            runs_root_dir: Path,
+            input_path: Path,
+            custom_run_name: str | None = None
+    ) -> str:
         """Generate unique run name.
         Appends the current datetime to the generated run name if a run with
         that name already exists.
@@ -526,6 +532,8 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             Root directory where runs are saved.
         input_path
             Path to input for this run.
+        custom_run_name
+            Custom name to use for run.
 
         Returns
         -------
@@ -538,7 +546,8 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             If run directory with datetime appended already exists.
         """
 
-        run_name = input_path.stem
+        run_name = input_path.stem \
+            if custom_run_name is None else custom_run_name
         run_dir = runs_root_dir / run_name
         if run_dir.is_dir():
             logger.warning(f"Run directory already exists at '{run_dir}'. "
