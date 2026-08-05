@@ -162,11 +162,58 @@ class ComputeRunner(ABC):
         """Path to output directory on the compute node."""
         return self.compute_dir / "output"
 
+    def run_compute(self) -> None:
+        """Perform a compute run."""
+
+        self._initialize_compute_file_structure()
+        self.perform_compute()
+
+    def _initialize_compute_file_structure(self) -> None:
+        """Initialize compute file structure."""
+
+        logger.debug("Initializing compute node file structure...")
+        if not self.compute_dir.is_dir():
+            raise NotADirectoryError(
+                f"Could not find compute dir at '{self.compute_dir}'."
+            )
+
+        # Initialize input dir
+        self.compute_input_dir.mkdir()
+        for path in self.job_data.input_paths:
+            shutil.copy2(path, self.compute_input_dir)
+
+        # Initialize output dir
+        self.compute_output_dir.mkdir()
+
     @abstractmethod
-    def perform_compute(self):
+    def perform_compute(self) -> None:
         """Abstract method for performing the compute logic on the compute node.
         """
         pass
+
+    def call_function_on_inputs(
+            self,
+            func: Callable[[Path]],
+            log_name: str | None = None
+    ) -> None:
+        """Helper method for calling a function on all inputs for compute job.
+
+        Parameters
+        ----------
+        func
+            Function to call for each input. Path to input file will be passed
+            to the function.
+        log_name
+            Optional name to use in log message. Logging skipped if not
+            provided.
+        """
+        input_files: list[Path] = sorted(self.compute_input_dir.iterdir())
+        total_input_count = len(input_files)
+        for input_index, input_file in enumerate(input_files, start=1):
+            if log_name:
+                logger.info(f"Performing {log_name} on {input_file.stem} "
+                            f"({input_index}/{total_input_count})...")
+            func(input_file)
 
 
 @dataclass(frozen=True)
@@ -201,7 +248,7 @@ class ClusterRunners(ABC):
             case _RunnerStage.BACKGROUND:
                 self.login_background_runner.run_background()
             case _RunnerStage.COMPUTE:
-                self.compute_runner.perform_compute()
+                self.compute_runner.run_compute()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 
