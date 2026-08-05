@@ -75,7 +75,7 @@ def run_subprocess_command(
 
             if process.stdout is not None and not log_output:
                 for line in process.stdout:
-                    print(line)
+                    print(line, end="")
 
             return False
     return True
