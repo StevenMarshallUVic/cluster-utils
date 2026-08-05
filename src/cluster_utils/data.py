@@ -181,6 +181,17 @@ class Paths(ArgParseable, JsonSerializable, ABC):
     def account_file(self):
         """Default path to the account file for this project."""
         return self.project_dir / ".account.txt"
+
+    @property
+    def src_dir(self) -> Path:
+        """Source directory of Reseek project."""
+        return self.project_dir / "src"
+
+
+    @property
+    def cluster_compute_shell_script(self) -> Path:
+        """Path to shell script for initializing environment on compute node."""
+        return self.src_dir / "compute.sh"
     #endregion
 
     #region Scratch Directory
@@ -213,12 +224,12 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
     @property
     def login_background_log_file(self) -> Path:
-        """Log file where background logging will be written to"""
+        """Log file where background logging will be written to."""
         return self.logs_dir / f"{self.project_name()}-login.log"
 
     @property
     def compute_log_file(self) -> Path:
-        """Log file where compute logging will be written to"""
+        """Log file where compute logging will be written to."""
         return self.logs_dir / f"{self.project_name()}-compute-%A_%a.log"
 
     @property
@@ -263,7 +274,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
     @property
     def run_slurm_params_json(self) -> Path:
-        """JSON file to write slurm parameters for the current attempt to."""
+        """JSON file to write slurm parameters for the current run to."""
         return self.run_params_dir / self.SLURM_PARAMS_JSON_NAME
 
     @property
