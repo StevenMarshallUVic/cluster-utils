@@ -33,6 +33,7 @@ done
 echo "INFO:${SCRIPT_NAME}:Initializing modules..."
 if ! command -v module &> /dev/null; then
     echo "ERROR:${SCRIPT_NAME}:'module' command is not installed. Are you sure you're running this on a cluster?"
+    exit 1
 fi
 if "$debug"; then
     module purge -q
