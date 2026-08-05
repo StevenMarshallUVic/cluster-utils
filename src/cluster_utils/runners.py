@@ -194,7 +194,7 @@ class ComputeRunner(ABC):
 
     def call_function_on_inputs(
             self,
-            func: Callable[[Path]],
+            func: Callable[[Path], Any],
             log_name: str | None = None
     ) -> None:
         """Helper method for calling a function on all inputs for compute job.
