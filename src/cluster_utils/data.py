@@ -27,12 +27,13 @@ class Input(ArgParseable, JsonSerializable):
 
     input_path: Path
 
-    @staticmethod
+    @classmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
-            prefix: str | None = None,
     ) -> None:
+        prefix = cls.argument_prefix()
         target = group if group is not None else parser
         target.add_argument(
             *(["-i"] if not prefix else [] + [
@@ -92,12 +93,13 @@ class SlurmParams(ArgParseable, JsonSerializable):
         account = open(account_file).read().strip()
         return account
 
-    @staticmethod
+    @classmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
-            prefix: str | None = None,
     ) -> None:
+        prefix = cls.argument_prefix()
         target = group if group is not None else parser.add_argument_group(
             "Slurm Parameters",
             "Parameters used for Slurm job submission."
@@ -642,12 +644,13 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
         return zip_path
 
-    @staticmethod
+    @classmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
-            prefix: str | None = None,
     ) -> None:
+        prefix = cls.argument_prefix()
         target = group if group is not None else parser.add_argument_group(
             "Run Parameters",
             "Parameters used for initializing run."
@@ -826,12 +829,13 @@ class ArrayJobInstanceParams(ArgParseable):
     compute_dir: Path
     array_job_index: int
 
-    @staticmethod
+    @classmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
-            prefix: str | None = None,
     ) -> None:
+        prefix = cls.argument_prefix()
         target = group if group is not None else parser.add_argument_group(
             "Array Job Parameters",
             "Parameters used in the array job stage.",

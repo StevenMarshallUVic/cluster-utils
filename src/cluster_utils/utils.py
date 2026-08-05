@@ -275,11 +275,16 @@ class ArgParseable(ABC):
     """Interface for adding argument parsing support to a dataclass."""
 
     @staticmethod
+    def argument_prefix() -> str | None:
+        """Virtual method for adding custom prefix to arguments."""
+        return None
+
+    @classmethod
     @abstractmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
-            prefix: str | None = None,
     ) -> None:
         """Abstract method for adding arguments to an argument parser."""
         raise NotImplementedError
