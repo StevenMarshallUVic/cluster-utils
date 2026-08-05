@@ -31,10 +31,13 @@ class Input(ArgParseable, JsonSerializable):
     def add_arguments(
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
     ) -> None:
         target = group if group is not None else parser
         target.add_argument(
-            "-i", "--input-path",
+            *(["-i"] if not prefix else [] + [
+                f"--{prefix}-input-path" if prefix else "--input-path",
+            ]),
             help="Path to input(s). "
                  "See README.md for explanation of valid inputs.",
             type=Path,
@@ -92,40 +95,44 @@ class SlurmParams(ArgParseable, JsonSerializable):
     def add_arguments(
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
     ) -> None:
-        group = parser.add_argument_group(
+        target = group if group is not None else parser.add_argument_group(
             "Slurm Parameters",
             "Parameters used for Slurm job submission."
         )
-        group.add_argument(
+        target.add_argument(
             "--account",
             help=f"(Optional) Digital Research Alliance of Canada account to "
                  f"charge usage to. "
                  f"When not supplied, attempts to find value in account file.",
             type=str,
         )
-        group.add_argument(
-            "--batch-size", "--batch",
+        target.add_argument(
+            f"--{prefix}-batch-size" if prefix else "--batch-size",
+            f"--{prefix}-batch" if prefix else "--batch",
             help="(Optional) How many inputs to batch into each slurm job. "
                  "When not supplied, uses default batch size.",
             type=int,
         )
-        group.add_argument(
-            "--cpus-per-task", "--cpus",
+        target.add_argument(
+            f"--{prefix}-cpus-per-task" if prefix else "--cpus-per-task",
+            f"--{prefix}-cpus" if prefix else "--cpus",
             help="(Optional) How many CPUs to allocate for each slurm job. "
                  "When not supplied, uses default of "
                  f"{SlurmParams.DEFAULT_CPUS_PER_TASK}.",
             type=int,
             default=SlurmParams.DEFAULT_CPUS_PER_TASK,
         )
-        group.add_argument(
-            "--memory", "--mem",
+        target.add_argument(
+            f"--{prefix}-memory" if prefix else "--memory",
+            f"--{prefix}-mem" if prefix else "--mem",
             help="(Optional) Amount of memory to allocate for each slurm job. "
                  "When not supplied, uses default memory.",
             type=str,
         )
-        group.add_argument(
-            "--time",
+        target.add_argument(
+            f"--{prefix}-time" if prefix else "--time",
             help="(Optional) Amount of time to allocate for each slurm job. "
                  "When not supplied, uses default time.",
             type=str,
@@ -633,30 +640,33 @@ class Paths(ArgParseable, JsonSerializable, ABC):
     def add_arguments(
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
     ) -> None:
-        group = parser.add_argument_group(
+        target = group if group is not None else parser.add_argument_group(
             "Run Parameters",
             "Parameters used for initializing run."
         )
-        group.add_argument(
-            "--scratch-dir",
+        target.add_argument(
+            f"--{prefix}-scratch-dir" if prefix else "--scratch-dir",
             help="Path to scratch directory on cluster.",
             type=Path,
         )
-        group.add_argument(
-            "-r", "--run-dir",
+        target.add_argument(
+            *(["-r"] if not prefix else [] + [
+                f"--{prefix}-run-dir" if prefix else "--run-dir",
+            ]),
             help="Path to directory where previous run was created. "
                  "Allows performing multiple attempts for one input dataset.",
             type=Path,
         )
-        group.add_argument(
-            "--project-dir",
+        target.add_argument(
+            f"--{prefix}-project-dir" if prefix else "--project-dir",
             help="(Optional) Path to project directory. "
                  "When not supplied, inferred from relative file structure.",
             type=Path,
         )
-        group.add_argument(
-            "--run-name",
+        target.add_argument(
+            f"--{prefix}-run-name" if prefix else "--run-name",
             help="(Optional) Custom name of run. "
                  "When not supplied, infers name from input. "
                  "Ignored when '--run-dir' is supplied.",
@@ -810,19 +820,20 @@ class ArrayJobInstanceParams(ArgParseable):
     def add_arguments(
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
     ) -> None:
-        group = parser.add_argument_group(
+        target = group if group is not None else parser.add_argument_group(
             "Array Job Parameters",
             "Parameters used in the array job stage.",
         )
-        group.add_argument(
-            "--compute-dir",
+        target.add_argument(
+            f"--{prefix}-compute-dir" if prefix else "--compute-dir",
             help="Root directory of compute node.",
             required=True,
             type=Path,
         )
-        group.add_argument(
-            "--array-job-index",
+        target.add_argument(
+            f"--{prefix}-array-job-index" if prefix else "--array-job-index",
             help="0-based index of array job instance.",
             required=True,
             type=int,

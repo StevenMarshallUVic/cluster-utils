@@ -279,6 +279,7 @@ class ArgParseable(ABC):
     def add_arguments(
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
     ) -> None:
         """Abstract method for adding arguments to an argument parser."""
         raise NotImplementedError
