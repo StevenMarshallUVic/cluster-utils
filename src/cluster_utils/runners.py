@@ -67,19 +67,6 @@ class LoginBackgroundRunner(ABC):
     paths: Paths
     slurm_params: SlurmParams
 
-    @property
-    @abstractmethod
-    def is_array_job(self) -> bool:
-        """Abstract property for specifying whether the slurm job should be
-         submitted as an array job or a single job."""
-        pass
-
-    @property
-    @abstractmethod
-    def slurm_job_name(self) -> str:
-        """Abstract property for specifying the name of the slurm job."""
-        return f"{self.paths.project_name().lower()}-compute"
-
     def run_background(self):
         """Perform background portion of run."""
 
