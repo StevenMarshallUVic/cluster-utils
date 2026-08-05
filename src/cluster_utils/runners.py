@@ -46,6 +46,8 @@ class LoginForegroundRunner(ABC):
             "--paths-json", self.paths.attempt_paths_json,
             "--runner-stage", _RunnerStage.BACKGROUND.name,
         ]
+        if logger.isEnabledFor(logging.DEBUG):
+            command.append("--debug")
 
         logger.info("Performing run in background. Logs can be found at "
                     f"'{self.paths.login_background_log_file}'.")
