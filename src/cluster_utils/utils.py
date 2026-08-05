@@ -53,8 +53,8 @@ def run_subprocess_command(
     log_output = logger.isEnabledFor(output_logging_level) if logger else False
     with subprocess.Popen(
         args,
-        stdout=subprocess.PIPE if log_output else subprocess.DEVNULL,
-        stderr=subprocess.STDOUT if log_output else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
     ) as process:
@@ -69,7 +69,7 @@ def run_subprocess_command(
                 log_message += " See console output below:"
 
             if logger:
-                logger.warning(log_message)
+                logger.error(log_message)
             else:
                 print(log_message)
 
