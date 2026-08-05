@@ -38,6 +38,7 @@ class Input(ArgParseable, JsonSerializable):
             *(["-i"] if not prefix else [] + [
                 f"--{prefix}-input-path" if prefix else "--input-path",
             ]),
+            dest="input_path",
             help="Path to input(s). "
                  "See README.md for explanation of valid inputs.",
             type=Path,
@@ -103,6 +104,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
         )
         target.add_argument(
             "--account",
+            dest="account",
             help=f"(Optional) Digital Research Alliance of Canada account to "
                  f"charge usage to. "
                  f"When not supplied, attempts to find value in account file.",
@@ -111,6 +113,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
         target.add_argument(
             f"--{prefix}-batch-size" if prefix else "--batch-size",
             f"--{prefix}-batch" if prefix else "--batch",
+            dest="batch_size",
             help="(Optional) How many inputs to batch into each slurm job. "
                  "When not supplied, uses default batch size.",
             type=int,
@@ -118,6 +121,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
         target.add_argument(
             f"--{prefix}-cpus-per-task" if prefix else "--cpus-per-task",
             f"--{prefix}-cpus" if prefix else "--cpus",
+            dest="cpus_per_task",
             help="(Optional) How many CPUs to allocate for each slurm job. "
                  "When not supplied, uses default of "
                  f"{SlurmParams.DEFAULT_CPUS_PER_TASK}.",
@@ -127,12 +131,14 @@ class SlurmParams(ArgParseable, JsonSerializable):
         target.add_argument(
             f"--{prefix}-memory" if prefix else "--memory",
             f"--{prefix}-mem" if prefix else "--mem",
+            dest="memory",
             help="(Optional) Amount of memory to allocate for each slurm job. "
                  "When not supplied, uses default memory.",
             type=str,
         )
         target.add_argument(
             f"--{prefix}-time" if prefix else "--time",
+            dest="time",
             help="(Optional) Amount of time to allocate for each slurm job. "
                  "When not supplied, uses default time.",
             type=str,
@@ -648,6 +654,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         )
         target.add_argument(
             f"--{prefix}-scratch-dir" if prefix else "--scratch-dir",
+            dest="scratch_dir",
             help="Path to scratch directory on cluster.",
             type=Path,
         )
@@ -655,18 +662,21 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             *(["-r"] if not prefix else [] + [
                 f"--{prefix}-run-dir" if prefix else "--run-dir",
             ]),
+            dest="run_dir",
             help="Path to directory where previous run was created. "
                  "Allows performing multiple attempts for one input dataset.",
             type=Path,
         )
         target.add_argument(
             f"--{prefix}-project-dir" if prefix else "--project-dir",
+            dest="project_dir",
             help="(Optional) Path to project directory. "
                  "When not supplied, inferred from relative file structure.",
             type=Path,
         )
         target.add_argument(
             f"--{prefix}-run-name" if prefix else "--run-name",
+            dest="run_name",
             help="(Optional) Custom name of run. "
                  "When not supplied, infers name from input. "
                  "Ignored when '--run-dir' is supplied.",
@@ -828,12 +838,14 @@ class ArrayJobInstanceParams(ArgParseable):
         )
         target.add_argument(
             f"--{prefix}-compute-dir" if prefix else "--compute-dir",
+            dest="compute_dir",
             help="Root directory of compute node.",
             required=True,
             type=Path,
         )
         target.add_argument(
             f"--{prefix}-array-job-index" if prefix else "--array-job-index",
+            dest="array_job_index",
             help="0-based index of array job instance.",
             required=True,
             type=int,
