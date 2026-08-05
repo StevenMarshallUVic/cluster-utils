@@ -65,7 +65,6 @@ class LoginBackgroundRunner(ABC):
     in the background."""
 
     paths: Paths
-    slurm_params: SlurmParams
 
     def run_background(self):
         """Perform background portion of run."""
