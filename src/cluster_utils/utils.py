@@ -84,7 +84,7 @@ def run_subprocess_command(
 
 def log_args_help(
         template_parser: argparse.ArgumentParser,
-        arg_parseables: list[ArgParseable],
+        arg_parseables: list[type[ArgParseable]],
 ) -> None:
     """Write argparse help.
 
