@@ -1,5 +1,6 @@
 """Utilities used when running jobs on a cluster."""
 
+from __future__ import annotations
 import argparse
 import enum
 import json
@@ -79,6 +80,40 @@ def run_subprocess_command(
 
             return False
     return True
+
+
+def log_args_help(
+        template_parser: argparse.ArgumentParser,
+        arg_parseables: list[ArgParseable],
+) -> None:
+    """Write argparse help.
+
+    Parameters
+    ----------
+    template_parser
+        Parser to copy help description for.
+    arg_parseables
+        Arguments to add to help log message.
+    """
+
+    help_parser = argparse.ArgumentParser(
+        prog=template_parser.prog,
+        usage=template_parser.usage,
+        description=template_parser.description,
+        epilog=template_parser.epilog,
+        formatter_class=template_parser.formatter_class,
+        prefix_chars=template_parser.prefix_chars,
+        fromfile_prefix_chars=template_parser.fromfile_prefix_chars,
+        argument_default=template_parser.argument_default,
+        conflict_handler=template_parser.conflict_handler,
+        allow_abbrev=template_parser.allow_abbrev,
+        exit_on_error=template_parser.exit_on_error,
+        add_help=True,
+    )
+    for arg_parseable in arg_parseables:
+        arg_parseable.add_arguments(help_parser)
+
+    help_parser.parse_args()
 
 
 class ClusterJsonEncoder(json.JSONEncoder, ABC):
