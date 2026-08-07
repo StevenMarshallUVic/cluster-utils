@@ -822,11 +822,14 @@ class ArrayJobInstanceParams(ArgParseable):
     ----------
     compute_dir
         Path to root directory of compute node.
+    paths_json
+        Path to JSON file with path data for attempt.
     array_job_index
         Index of array job.
     """
 
     compute_dir: Path
+    paths_json: Path
     array_job_index: int
 
     @classmethod
@@ -853,4 +856,11 @@ class ArrayJobInstanceParams(ArgParseable):
             help="0-based index of array job instance.",
             required=True,
             type=int,
+        )
+        target.add_argument(
+            f"--{prefix}-paths-json" if prefix else "--paths-json",
+            dest="paths_json",
+            help="Path to JSON file containing paths for attempt.",
+            required=True,
+            type=Path,
         )
