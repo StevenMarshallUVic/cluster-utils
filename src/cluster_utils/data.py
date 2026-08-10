@@ -358,12 +358,16 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
     def get_missing_output_input_files(
             self,
+            output_dir: Path | None = None,
             file_suffix: str | None = None,
     ) -> list[Path]:
         """Get paths to input files that have not been processed yet.
 
         Parameters
         ----------
+        output_dir
+            Path to output directory. When not supplied, defaults to root
+            output directory.
         file_suffix
             Suffix of output files, or None if output are directories.
 
@@ -373,16 +377,19 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             Paths to input files that do not currently have results.
         """
 
+        if output_dir is None:
+            output_dir = self.output_dir
+
         completed_ids = list()
-        if self.output_dir.is_dir():
+        if output_dir.is_dir():
             if file_suffix:
                 completed_ids = [
-                    path.stem for path in sorted(self.output_dir.iterdir())
-                    if path.suffix == file_suffix and path.is_file()
+                    path.stem for path in sorted(output_dir.iterdir())
+                    if path.is_file() and str(path).endswith(file_suffix)
                 ]
             else:
                 completed_ids = [
-                    path.stem for path in sorted(self.output_dir.iterdir())
+                    path.stem for path in sorted(output_dir.iterdir())
                     if path.is_dir()
                 ]
 
