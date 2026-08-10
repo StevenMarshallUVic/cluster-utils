@@ -273,11 +273,6 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         return self.run_dir / "input"
 
     @property
-    def input_paths(self) -> list[Path]:
-        """Sorted list of all input paths in current run."""
-        return sorted(self.input_dir.iterdir())
-
-    @property
     def run_params_dir(self) -> Path:
         """Directory where parameters for the current run will be saved."""
         return self.run_dir / ".params"
@@ -352,12 +347,13 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
         return ArrayJobData.write_array_job_data(
             self.attempt_array_job_data_dir,
-            self.get_missing_output_input_files(".tsv"),
+            self.get_missing_output_input_files(file_suffix=".tsv"),
             batch_size,
         )
 
     def get_missing_output_input_files(
             self,
+            input_dir: Path | None = None,
             output_dir: Path | None = None,
             file_suffix: str | None = None,
     ) -> list[Path]:
@@ -365,9 +361,12 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
         Parameters
         ----------
+        input_dir
+            Path to input directory. When not supplied, defaults to root
+            input directory for the run.
         output_dir
             Path to output directory. When not supplied, defaults to root
-            output directory.
+            output directory for the run.
         file_suffix
             Suffix of output files, or None if output are directories.
 
@@ -377,6 +376,8 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             Paths to input files that do not currently have results.
         """
 
+        if input_dir is None:
+            input_dir = self.input_dir
         if output_dir is None:
             output_dir = self.output_dir
 
@@ -394,7 +395,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
                 ]
 
         return sorted([
-            input_path for input_path in sorted(self.input_paths)
+            input_path for input_path in sorted(input_dir.iterdir())
             if input_path.stem not in completed_ids
         ])
 
