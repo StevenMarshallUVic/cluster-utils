@@ -188,6 +188,13 @@ class ComputeRunner(ABC):
         # Initialize output dir
         self.compute_output_dir.mkdir()
 
+        # Perform custom initialization
+        self.initialize_compute_file_structure()
+
+    def initialize_compute_file_structure(self) -> None:
+        """Virtual method to allow for performing additional initialization."""
+        pass
+
     @abstractmethod
     def perform_compute(self) -> None:
         """Abstract method for performing the compute logic on the compute node.
