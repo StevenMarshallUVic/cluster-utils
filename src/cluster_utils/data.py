@@ -383,21 +383,32 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
         completed_ids = list()
         if output_dir.is_dir():
-            if file_suffix:
-                completed_ids = [
-                    path.stem for path in sorted(output_dir.iterdir())
-                    if path.is_file() and str(path).endswith(file_suffix)
-                ]
-            else:
-                completed_ids = [
-                    path.stem for path in sorted(output_dir.iterdir())
-                    if path.is_dir()
-                ]
+            for path in sorted(output_dir.iterdir()):
+                if file_suffix:
+                    if not path.is_file():
+                        continue
 
-        return sorted([
-            input_path for input_path in sorted(input_dir.iterdir())
-            if input_path.stem not in completed_ids
-        ])
+                    path_id = path.stem \
+                        if len(path.suffixes) == 0 \
+                        else path.name.split(path.suffixes[0])[0]
+                    path_full_suffix = path.name.removeprefix(path_id)
+                    if path_full_suffix == file_suffix:
+                        completed_ids.append(path_id)
+                else:
+                    if not path.is_dir():
+                        continue
+
+                    completed_ids.append(path.stem)
+
+        incomplete_paths = []
+        for input_path in sorted(input_dir.iterdir()):
+            input_id = input_path.stem \
+                if len(input_path.suffixes) == 0 \
+                else input_path.name.split(input_path.suffixes[0])[0]
+
+            if input_id not in completed_ids:
+                incomplete_paths.append(input_path)
+        return sorted(incomplete_paths)
 
     def _initialize_run_dir(self) -> None:
         """Initialize run directory."""
