@@ -27,14 +27,19 @@ class Input(ArgParseable, JsonSerializable):
 
     input_path: Path
 
-    @staticmethod
+    @classmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
     ) -> None:
+        prefix = cls.argument_prefix()
         target = group if group is not None else parser
         target.add_argument(
-            "-i", "--input-path",
+            *(["-i"] if not prefix else [] + [
+                f"--{prefix}-input-path" if prefix else "--input-path",
+            ]),
+            dest="input_path",
             help="Path to input(s). "
                  "See README.md for explanation of valid inputs.",
             type=Path,
@@ -88,44 +93,54 @@ class SlurmParams(ArgParseable, JsonSerializable):
         account = open(account_file).read().strip()
         return account
 
-    @staticmethod
+    @classmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
     ) -> None:
-        group = parser.add_argument_group(
+        prefix = cls.argument_prefix()
+        target = group if group is not None else parser.add_argument_group(
             "Slurm Parameters",
             "Parameters used for Slurm job submission."
         )
-        group.add_argument(
+        target.add_argument(
             "--account",
+            dest="account",
             help=f"(Optional) Digital Research Alliance of Canada account to "
                  f"charge usage to. "
                  f"When not supplied, attempts to find value in account file.",
             type=str,
         )
-        group.add_argument(
-            "--batch-size", "--batch",
+        target.add_argument(
+            f"--{prefix}-batch-size" if prefix else "--batch-size",
+            f"--{prefix}-batch" if prefix else "--batch",
+            dest="batch_size",
             help="(Optional) How many inputs to batch into each slurm job. "
                  "When not supplied, uses default batch size.",
             type=int,
         )
-        group.add_argument(
-            "--cpus-per-task", "--cpus",
+        target.add_argument(
+            f"--{prefix}-cpus-per-task" if prefix else "--cpus-per-task",
+            f"--{prefix}-cpus" if prefix else "--cpus",
+            dest="cpus_per_task",
             help="(Optional) How many CPUs to allocate for each slurm job. "
                  "When not supplied, uses default of "
                  f"{SlurmParams.DEFAULT_CPUS_PER_TASK}.",
             type=int,
             default=SlurmParams.DEFAULT_CPUS_PER_TASK,
         )
-        group.add_argument(
-            "--memory", "--mem",
+        target.add_argument(
+            f"--{prefix}-memory" if prefix else "--memory",
+            f"--{prefix}-mem" if prefix else "--mem",
+            dest="memory",
             help="(Optional) Amount of memory to allocate for each slurm job. "
                  "When not supplied, uses default memory.",
             type=str,
         )
-        group.add_argument(
-            "--time",
+        target.add_argument(
+            f"--{prefix}-time" if prefix else "--time",
+            dest="time",
             help="(Optional) Amount of time to allocate for each slurm job. "
                  "When not supplied, uses default time.",
             type=str,
@@ -181,6 +196,17 @@ class Paths(ArgParseable, JsonSerializable, ABC):
     def account_file(self):
         """Default path to the account file for this project."""
         return self.project_dir / ".account.txt"
+
+    @property
+    def src_dir(self) -> Path:
+        """Source directory of Reseek project."""
+        return self.project_dir / "src"
+
+
+    @property
+    def cluster_compute_shell_script(self) -> Path:
+        """Path to shell script for initializing environment on compute node."""
+        return self.src_dir / "compute.sh"
     #endregion
 
     #region Scratch Directory
@@ -213,12 +239,12 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
     @property
     def login_background_log_file(self) -> Path:
-        """Log file where background logging will be written to"""
+        """Log file where background logging will be written to."""
         return self.logs_dir / f"{self.project_name()}-login.log"
 
     @property
     def compute_log_file(self) -> Path:
-        """Log file where compute logging will be written to"""
+        """Log file where compute logging will be written to."""
         return self.logs_dir / f"{self.project_name()}-compute-%A_%a.log"
 
     @property
@@ -247,11 +273,6 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         return self.run_dir / "input"
 
     @property
-    def input_paths(self) -> list[Path]:
-        """Sorted list of all input paths in current run."""
-        return sorted(self.input_dir.iterdir())
-
-    @property
     def run_params_dir(self) -> Path:
         """Directory where parameters for the current run will be saved."""
         return self.run_dir / ".params"
@@ -263,7 +284,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
     @property
     def run_slurm_params_json(self) -> Path:
-        """JSON file to write slurm parameters for the current attempt to."""
+        """JSON file to write slurm parameters for the current run to."""
         return self.run_params_dir / self.SLURM_PARAMS_JSON_NAME
 
     @property
@@ -326,18 +347,26 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
         return ArrayJobData.write_array_job_data(
             self.attempt_array_job_data_dir,
-            self.get_missing_output_input_files(".tsv"),
+            self.get_missing_output_input_files(file_suffix=".tsv"),
             batch_size,
         )
 
     def get_missing_output_input_files(
             self,
+            input_dir: Path | None = None,
+            output_dir: Path | None = None,
             file_suffix: str | None = None,
     ) -> list[Path]:
         """Get paths to input files that have not been processed yet.
 
         Parameters
         ----------
+        input_dir
+            Path to input directory. When not supplied, defaults to root
+            input directory for the run.
+        output_dir
+            Path to output directory. When not supplied, defaults to root
+            output directory for the run.
         file_suffix
             Suffix of output files, or None if output are directories.
 
@@ -347,23 +376,39 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             Paths to input files that do not currently have results.
         """
 
-        completed_ids = list()
-        if self.output_dir.is_dir():
-            if file_suffix:
-                completed_ids = [
-                    path.stem for path in sorted(self.output_dir.iterdir())
-                    if path.suffix == file_suffix and path.is_file()
-                ]
-            else:
-                completed_ids = [
-                    path.stem for path in sorted(self.output_dir.iterdir())
-                    if path.is_dir()
-                ]
+        if input_dir is None:
+            input_dir = self.input_dir
+        if output_dir is None:
+            output_dir = self.output_dir
 
-        return sorted([
-            input_path for input_path in sorted(self.input_paths)
-            if input_path.stem not in completed_ids
-        ])
+        completed_ids = list()
+        if output_dir.is_dir():
+            for path in sorted(output_dir.iterdir()):
+                if file_suffix:
+                    if not path.is_file():
+                        continue
+
+                    path_id = path.stem \
+                        if len(path.suffixes) == 0 \
+                        else path.name.split(path.suffixes[0])[0]
+                    path_full_suffix = path.name.removeprefix(path_id)
+                    if path_full_suffix == file_suffix:
+                        completed_ids.append(path_id)
+                else:
+                    if not path.is_dir():
+                        continue
+
+                    completed_ids.append(path.stem)
+
+        incomplete_paths = []
+        for input_path in sorted(input_dir.iterdir()):
+            input_id = input_path.stem \
+                if len(input_path.suffixes) == 0 \
+                else input_path.name.split(input_path.suffixes[0])[0]
+
+            if input_id not in completed_ids:
+                incomplete_paths.append(input_path)
+        return sorted(incomplete_paths)
 
     def _initialize_run_dir(self) -> None:
         """Initialize run directory."""
@@ -618,34 +663,42 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
         return zip_path
 
-    @staticmethod
+    @classmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
     ) -> None:
-        group = parser.add_argument_group(
+        prefix = cls.argument_prefix()
+        target = group if group is not None else parser.add_argument_group(
             "Run Parameters",
             "Parameters used for initializing run."
         )
-        group.add_argument(
-            "--scratch-dir",
+        target.add_argument(
+            f"--{prefix}-scratch-dir" if prefix else "--scratch-dir",
+            dest="scratch_dir",
             help="Path to scratch directory on cluster.",
             type=Path,
         )
-        group.add_argument(
-            "-r", "--run-dir",
+        target.add_argument(
+            *(["-r"] if not prefix else [] + [
+                f"--{prefix}-run-dir" if prefix else "--run-dir",
+            ]),
+            dest="run_dir",
             help="Path to directory where previous run was created. "
                  "Allows performing multiple attempts for one input dataset.",
             type=Path,
         )
-        group.add_argument(
-            "--project-dir",
+        target.add_argument(
+            f"--{prefix}-project-dir" if prefix else "--project-dir",
+            dest="project_dir",
             help="(Optional) Path to project directory. "
                  "When not supplied, inferred from relative file structure.",
             type=Path,
         )
-        group.add_argument(
-            "--run-name",
+        target.add_argument(
+            f"--{prefix}-run-name" if prefix else "--run-name",
+            dest="run_name",
             help="(Optional) Custom name of run. "
                  "When not supplied, infers name from input. "
                  "Ignored when '--run-dir' is supplied.",
@@ -788,31 +841,45 @@ class ArrayJobInstanceParams(ArgParseable):
     ----------
     compute_dir
         Path to root directory of compute node.
+    paths_json
+        Path to JSON file with path data for attempt.
     array_job_index
         Index of array job.
     """
 
     compute_dir: Path
+    paths_json: Path
     array_job_index: int
 
-    @staticmethod
+    @classmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
     ) -> None:
-        group = parser.add_argument_group(
+        prefix = cls.argument_prefix()
+        target = group if group is not None else parser.add_argument_group(
             "Array Job Parameters",
             "Parameters used in the array job stage.",
         )
-        group.add_argument(
-            "--compute-dir",
+        target.add_argument(
+            f"--{prefix}-compute-dir" if prefix else "--compute-dir",
+            dest="compute_dir",
             help="Root directory of compute node.",
             required=True,
             type=Path,
         )
-        group.add_argument(
-            "--array-job-index",
+        target.add_argument(
+            f"--{prefix}-array-job-index" if prefix else "--array-job-index",
+            dest="array_job_index",
             help="0-based index of array job instance.",
             required=True,
             type=int,
+        )
+        target.add_argument(
+            f"--{prefix}-paths-json" if prefix else "--paths-json",
+            dest="paths_json",
+            help="Path to JSON file containing paths for attempt.",
+            required=True,
+            type=Path,
         )

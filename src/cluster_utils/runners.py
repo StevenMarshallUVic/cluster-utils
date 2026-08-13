@@ -2,11 +2,14 @@
 
 import argparse
 import logging
+import shutil
 import subprocess
 import sys
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from cluster_utils.data import ArrayJobData, Paths, SlurmParams
 from cluster_utils.utils import EnumAction, _RunnerStage, run_subprocess_command
@@ -46,6 +49,8 @@ class LoginForegroundRunner(ABC):
             "--paths-json", self.paths.attempt_paths_json,
             "--runner-stage", _RunnerStage.BACKGROUND.name,
         ]
+        if logger.isEnabledFor(logging.DEBUG):
+            command.append("--debug")
 
         logger.info("Performing run in background. Logs can be found at "
                     f"'{self.paths.login_background_log_file}'.")
@@ -65,46 +70,35 @@ class LoginBackgroundRunner(ABC):
     in the background."""
 
     paths: Paths
-    slurm_params: SlurmParams
-
-    @property
-    @abstractmethod
-    def is_array_job(self) -> bool:
-        """Abstract property for specifying whether the slurm job should be
-         submitted as an array job or a single job."""
-        pass
-
-    @property
-    @abstractmethod
-    def slurm_job_name(self) -> str:
-        """Abstract property for specifying the name of the slurm job."""
-        return f"{self.paths.project_name().lower()}-compute"
-
-    @property
-    def extra_job_wrap_args(self) -> list[str]:
-        """Virtual property for specifying extra arguments to pass to the
-        compute job."""
-        return []
 
     def run_background(self):
         """Perform background portion of run."""
 
         self._initialize_background()
-        if self.is_array_job:
-            self._submit_array_job()
-        else:
-            self._submit_single_job()
+        self._submit_compute_jobs()
         self._post_process_background()
 
     def _initialize_background(self) -> None:
         """Virtual method for initializing a run in the background."""
         pass
 
-    def _submit_array_job(self) -> None:
+    @abstractmethod
+    def _submit_compute_jobs(self):
+        """Virtual method for submitting compute jobs."""
+        pass
+
+    def _submit_array_job(
+            self,
+            job_name: str,
+            slurm_params: SlurmParams,
+            array_job_data_dir: Path,
+            log_file: Path,
+            extra_job_wrap_args: list[str] | None = None,
+    ) -> None:
         """Submit a slurm array job to handle the compute portion of the job."""
 
         max_array_index: int | None = ArrayJobData.find_greatest_array_job_index(
-            self.paths.attempt_array_job_data_dir,
+            array_job_data_dir,
         )
         if max_array_index is None:
             logger.info("No jobs to run, skipping array job submission!")
@@ -116,7 +110,7 @@ class LoginBackgroundRunner(ABC):
             "--project-dir", self.paths.project_dir,
             "--python-module-path", self.paths.runner_module_path,
             "--runner-stage", _RunnerStage.COMPUTE.name,
-        ] + self.extra_job_wrap_args)
+        ] + (extra_job_wrap_args if extra_job_wrap_args is not None else []))
         if logger.isEnabledFor(logging.DEBUG):
             wrap_args += " --debug"
 
@@ -124,16 +118,16 @@ class LoginBackgroundRunner(ABC):
         run_subprocess_command(
             args=[
                 "sbatch",
-                f"--job-name={self.slurm_job_name}",
-                f"--account={self.slurm_params.read_account_from_file(
+                f"--job-name={job_name}",
+                f"--account={slurm_params.read_account_from_file(
                     self.paths.account_file
                 )}",
-                f"--cpus-per-task={self.slurm_params.cpus_per_task}",
-                f"--mem={self.slurm_params.memory}",
-                f"--time={self.slurm_params.time}",
+                f"--cpus-per-task={slurm_params.cpus_per_task}",
+                f"--mem={slurm_params.memory}",
+                f"--time={slurm_params.time}",
                 f"--array=0-{max_array_index}",
-                f"--output={self.paths.compute_log_file}",
-                f"--error={self.paths.compute_log_file}",
+                f"--output={log_file}",
+                f"--error={log_file}",
                 "--wait",
                 f"--wrap={wrap_args}",
             ],
@@ -171,11 +165,65 @@ class ComputeRunner(ABC):
         """Path to output directory on the compute node."""
         return self.compute_dir / "output"
 
+    def run_compute(self) -> None:
+        """Perform a compute run."""
+
+        self._initialize_compute_file_structure()
+        self.perform_compute()
+
+    def _initialize_compute_file_structure(self) -> None:
+        """Initialize compute file structure."""
+
+        logger.debug("Initializing compute node file structure...")
+        if not self.compute_dir.is_dir():
+            raise NotADirectoryError(
+                f"Could not find compute dir at '{self.compute_dir}'."
+            )
+
+        # Initialize input dir
+        self.compute_input_dir.mkdir()
+        for path in self.job_data.input_paths:
+            shutil.copy2(path, self.compute_input_dir)
+
+        # Initialize output dir
+        self.compute_output_dir.mkdir()
+
+        # Perform custom initialization
+        self.initialize_compute_file_structure()
+
+    def initialize_compute_file_structure(self) -> None:
+        """Virtual method to allow for performing additional initialization."""
+        pass
+
     @abstractmethod
-    def perform_compute(self):
+    def perform_compute(self) -> None:
         """Abstract method for performing the compute logic on the compute node.
         """
         pass
+
+    def call_function_on_inputs(
+            self,
+            func: Callable[[Path], Any],
+            log_name: str | None = None
+    ) -> None:
+        """Helper method for calling a function on all inputs for compute job.
+
+        Parameters
+        ----------
+        func
+            Function to call for each input. Path to input file will be passed
+            to the function.
+        log_name
+            Optional name to use in log message. Logging skipped if not
+            provided.
+        """
+        input_files: list[Path] = sorted(self.compute_input_dir.iterdir())
+        total_input_count = len(input_files)
+        for input_index, input_file in enumerate(input_files, start=1):
+            if log_name:
+                logger.info(f"Performing {log_name} on {input_file.stem} "
+                            f"({input_index}/{total_input_count})...")
+            func(input_file)
 
 
 @dataclass(frozen=True)
@@ -210,7 +258,7 @@ class ClusterRunners(ABC):
             case _RunnerStage.BACKGROUND:
                 self.login_background_runner.run_background()
             case _RunnerStage.COMPUTE:
-                self.compute_runner.perform_compute()
+                self.compute_runner.run_compute()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 

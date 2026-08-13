@@ -1,5 +1,6 @@
 """Utilities used when running jobs on a cluster."""
 
+from __future__ import annotations
 import argparse
 import enum
 import json
@@ -53,8 +54,8 @@ def run_subprocess_command(
     log_output = logger.isEnabledFor(output_logging_level) if logger else False
     with subprocess.Popen(
         args,
-        stdout=subprocess.PIPE if log_output else subprocess.DEVNULL,
-        stderr=subprocess.STDOUT if log_output else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
     ) as process:
@@ -69,15 +70,50 @@ def run_subprocess_command(
                 log_message += " See console output below:"
 
             if logger:
-                logger.warning(log_message)
+                logger.error(log_message)
             else:
                 print(log_message)
 
             if process.stdout is not None and not log_output:
-                print(process.stdout)
+                for line in process.stdout:
+                    print(line, end="")
 
             return False
     return True
+
+
+def log_args_help(
+        template_parser: argparse.ArgumentParser,
+        arg_parseables: list[type[ArgParseable]],
+) -> None:
+    """Write argparse help.
+
+    Parameters
+    ----------
+    template_parser
+        Parser to copy help description for.
+    arg_parseables
+        Arguments to add to help log message.
+    """
+
+    help_parser = argparse.ArgumentParser(
+        prog=template_parser.prog,
+        usage=template_parser.usage,
+        description=template_parser.description,
+        epilog=template_parser.epilog,
+        formatter_class=template_parser.formatter_class,
+        prefix_chars=template_parser.prefix_chars,
+        fromfile_prefix_chars=template_parser.fromfile_prefix_chars,
+        argument_default=template_parser.argument_default,
+        conflict_handler=template_parser.conflict_handler,
+        allow_abbrev=template_parser.allow_abbrev,
+        exit_on_error=template_parser.exit_on_error,
+        add_help=True,
+    )
+    for arg_parseable in arg_parseables:
+        arg_parseable.add_arguments(help_parser)
+
+    help_parser.parse_args()
 
 
 class ClusterJsonEncoder(json.JSONEncoder, ABC):
@@ -275,8 +311,14 @@ class ArgParseable(ABC):
     """Interface for adding argument parsing support to a dataclass."""
 
     @staticmethod
+    def argument_prefix() -> str | None:
+        """Virtual method for adding custom prefix to arguments."""
+        return None
+
+    @classmethod
     @abstractmethod
     def add_arguments(
+            cls,
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
     ) -> None:
