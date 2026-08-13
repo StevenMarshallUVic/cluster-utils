@@ -75,7 +75,14 @@ class LoginBackgroundRunner(ABC):
         """Perform background portion of run."""
 
         self._initialize_background()
-        self._submit_compute_jobs()
+        success = self._submit_compute_jobs()
+
+        if not success:
+            logger.warning(
+                "One or more compute jobs failed, skipping post processing."
+            )
+            return
+
         self._post_process_background()
 
     def _initialize_background(self) -> None:
@@ -83,8 +90,14 @@ class LoginBackgroundRunner(ABC):
         pass
 
     @abstractmethod
-    def _submit_compute_jobs(self):
-        """Virtual method for submitting compute jobs."""
+    def _submit_compute_jobs(self) -> bool:
+        """Virtual method for submitting compute jobs.
+
+        Returns
+        -------
+        bool
+            Whether compute jobs completed successfully.
+        """
         pass
 
     def _submit_array_job(
@@ -94,15 +107,18 @@ class LoginBackgroundRunner(ABC):
             array_job_data_dir: Path,
             log_file: Path,
             extra_job_wrap_args: list[str] | None = None,
-    ) -> None:
+    ) -> bool:
         """Submit a slurm array job to handle the compute portion of the job."""
 
         max_array_index: int | None = ArrayJobData.find_greatest_array_job_index(
             array_job_data_dir,
         )
         if max_array_index is None:
-            logger.info("No jobs to run, skipping array job submission!")
-            return
+            logger.info(
+                f"No jobs to run for {job_name}, "
+                f"skipping array job submission!"
+            )
+            return True
 
         wrap_args = " ".join(subprocess.list2cmdline([arg]) for arg in [
             self.paths.cluster_compute_shell_script,
@@ -114,8 +130,8 @@ class LoginBackgroundRunner(ABC):
         if logger.isEnabledFor(logging.DEBUG):
             wrap_args += " --debug"
 
-        logger.info("Waiting for slurm array job to complete...")
-        run_subprocess_command(
+        logger.info(f"Waiting for {job_name} slurm array job to complete...")
+        success = run_subprocess_command(
             args=[
                 "sbatch",
                 f"--job-name={job_name}",
@@ -134,7 +150,12 @@ class LoginBackgroundRunner(ABC):
             logger=logger,
         )
 
-        logger.info("Slurm jobs completed!")
+        if success:
+            logger.info(f"{job_name} slurm jobs completed!")
+        else:
+            logger.warning(f"One or more {job_name} slurm jobs failed.")
+
+        return success
 
     def _submit_single_job(self) -> None:
         """Submit a single slurm job to handle the compute portion of the job.
