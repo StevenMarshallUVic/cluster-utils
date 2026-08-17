@@ -238,12 +238,12 @@ class ComputeRunner(ABC):
             Optional name to use in log message. Logging skipped if not
             provided.
         """
+
         input_files: list[Path] = sorted(self.compute_input_dir.iterdir())
-        total_input_count = len(input_files)
         for input_index, input_file in enumerate(input_files, start=1):
             if log_name:
                 logger.info(f"Performing {log_name} on {input_file.stem} "
-                            f"({input_index}/{total_input_count})...")
+                            f"({input_index}/{len(input_files)})...")
             func(input_file)
 
 
@@ -273,6 +273,7 @@ class ClusterRunners(ABC):
 
     def run_stage(self):
         """Perform stage of program."""
+
         match self._stage:
             case _RunnerStage.FOREGROUND:
                 self.login_foreground_runner.run_foreground()

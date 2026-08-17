@@ -126,9 +126,9 @@ class SlurmParams(ArgParseable, JsonSerializable):
             dest="cpus_per_task",
             help="(Optional) How many CPUs to allocate for each slurm job. "
                  "When not supplied, uses default of "
-                 f"{SlurmParams.DEFAULT_CPUS_PER_TASK}.",
+                 f"{cls.DEFAULT_CPUS_PER_TASK}.",
             type=int,
-            default=SlurmParams.DEFAULT_CPUS_PER_TASK,
+            default=cls.DEFAULT_CPUS_PER_TASK,
         )
         target.add_argument(
             f"--{prefix}-memory" if prefix else "--memory",
