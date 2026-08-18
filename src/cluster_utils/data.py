@@ -514,6 +514,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             Keyword arguments of fallbacks to use if arguments are not provided.
         """
 
+        run_dir = run_dir.resolve()
         fallbacks["run_name"] = run_dir.stem
 
         arg_parseable: ArgParseable = super()
