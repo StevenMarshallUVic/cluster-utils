@@ -27,20 +27,31 @@ class LoginForegroundRunner(ABC):
         """Abstract method for specifying Paths class or subclass."""
         pass
 
-    def run_foreground(self) -> None:
+    def run_foreground(self) -> bool:
         """Perform foreground portion of run."""
 
-        self._initialize_foreground()
-        self._run_in_background()
+        if not self._initialize_foreground():
+            return False
+
+        return self._run_in_background()
 
     @abstractmethod
-    def _initialize_foreground(self) -> None:
-        """Abstract method for initializing a run in the foreground."""
+    def _initialize_foreground(self) -> bool:
+        """Abstract method for initializing a run in the foreground.
 
-        pass
+        Returns
+        -------
+        Whether initialization was successful.
+        """
+        return True
 
-    def _run_in_background(self) -> None:
-        """Perform rest of run in the background."""
+    def _run_in_background(self) -> bool:
+        """Perform rest of run in the background.
+
+        Returns
+        -------
+        Whether run was successfully submitted to background.
+        """
 
         # sys.executable to use current python environment
         command = [
@@ -56,12 +67,14 @@ class LoginForegroundRunner(ABC):
                     f"'{self.paths.login_background_log_file}'.")
         with open(self.paths.login_background_log_file, "w") as log_file:
             # Run as background task
-            subprocess.Popen(
+            process = subprocess.Popen(
                 command,
                 stdout=log_file,
                 stderr=log_file,
                 start_new_session=True
             )
+
+            return process.wait() == 0
 
 
 @dataclass(frozen=True)
@@ -71,23 +84,33 @@ class LoginBackgroundRunner(ABC):
 
     paths: Paths
 
-    def run_background(self):
-        """Perform background portion of run."""
+    def run_background(self) -> bool:
+        """Perform background portion of run.
 
-        self._initialize_background()
-        success = self._submit_compute_jobs()
+        Returns
+        -------
+        Whether background processes were run successfully.
+        """
 
-        if not success:
+        if not self._initialize_background():
+            return False
+
+        if not self._submit_compute_jobs():
             logger.warning(
                 "One or more compute jobs failed, skipping post processing."
             )
-            return
+            return False
 
-        self._post_process_background()
+        return self._post_process_background()
 
-    def _initialize_background(self) -> None:
-        """Virtual method for initializing a run in the background."""
-        pass
+    def _initialize_background(self) -> bool:
+        """Virtual method for initializing a run in the background.
+
+        Returns
+        -------
+        Whether initialization was successful.
+        """
+        return True
 
     @abstractmethod
     def _submit_compute_jobs(self) -> bool:
@@ -162,10 +185,15 @@ class LoginBackgroundRunner(ABC):
         """
         raise NotImplementedError()
 
-    def _post_process_background(self) -> None:
+    def _post_process_background(self) -> bool:
         """Virtual method for performing post-processing in the background
-        after the compute stage completes."""
-        pass
+        after the compute stage completes.
+
+        Returns
+        -------
+        Whether post-processing was successful.
+        """
+        return True
 
 
 @dataclass(frozen=True)
@@ -186,14 +214,21 @@ class ComputeRunner(ABC):
         """Path to output directory on the compute node."""
         return self.compute_dir / "output"
 
-    def run_compute(self) -> None:
+    def run_compute(self) -> bool:
         """Perform a compute run."""
 
-        self._initialize_compute_file_structure()
-        self.perform_compute()
+        if not self._initialize_compute_file_structure():
+            return False
 
-    def _initialize_compute_file_structure(self) -> None:
-        """Initialize compute file structure."""
+        return self.perform_compute()
+
+    def _initialize_compute_file_structure(self) -> bool:
+        """Initialize compute file structure.
+
+        Returns
+        -------
+        Whether initialization was successful.
+        """
 
         logger.debug("Initializing compute node file structure...")
         if not self.compute_dir.is_dir():
@@ -210,17 +245,26 @@ class ComputeRunner(ABC):
         self.compute_output_dir.mkdir()
 
         # Perform custom initialization
-        self.initialize_compute_file_structure()
+        return self.initialize_compute_file_structure()
 
-    def initialize_compute_file_structure(self) -> None:
-        """Virtual method to allow for performing additional initialization."""
-        pass
+    def initialize_compute_file_structure(self) -> bool:
+        """Virtual method to allow for performing additional initialization.
+
+        Returns
+        -------
+        Whether initialization was successful.
+        """
+        return True
 
     @abstractmethod
-    def perform_compute(self) -> None:
+    def perform_compute(self) -> bool:
         """Abstract method for performing the compute logic on the compute node.
+
+        Returns
+        -------
+        Whether compute logic was performed successful.
         """
-        pass
+        return True
 
     def call_function_on_inputs(
             self,
@@ -271,16 +315,21 @@ class ClusterRunners(ABC):
         """Abstract property for specifying which compute runner to use."""
         pass
 
-    def run_stage(self):
-        """Perform stage of program."""
+    def run_stage(self) -> bool:
+        """Perform stage of program.
+
+        Returns
+        -------
+        Whether stage was run successfully.
+        """
 
         match self._stage:
             case _RunnerStage.FOREGROUND:
-                self.login_foreground_runner.run_foreground()
+                return self.login_foreground_runner.run_foreground()
             case _RunnerStage.BACKGROUND:
-                self.login_background_runner.run_background()
+                return self.login_background_runner.run_background()
             case _RunnerStage.COMPUTE:
-                self.compute_runner.run_compute()
+                return self.compute_runner.run_compute()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 
