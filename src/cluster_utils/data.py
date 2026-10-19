@@ -14,6 +14,8 @@ from cluster_utils.utils import ArgParseable, JsonSerializable
 
 logger = logging.getLogger(Path(__file__).name)
 
+# TODO: Add enum for slurm dependency types
+# TODO: Create helper method for generating prefix flags
 
 @dataclass(frozen=True)
 class Input(ArgParseable, JsonSerializable):
@@ -36,9 +38,10 @@ class Input(ArgParseable, JsonSerializable):
         prefix = cls.argument_prefix()
         target = group if group is not None else parser
         target.add_argument(
-            *(["-i"] if not prefix else [] + [
-                f"--{prefix}-input-path" if prefix else "--input-path",
-            ]),
+            *(
+                ["-i", "--input-path"] if not prefix
+                else [f"--{prefix}-input-path"]
+            ),
             dest="input_path",
             help="Path to input(s). "
                  "See README.md for explanation of valid inputs.",
@@ -113,16 +116,16 @@ class SlurmParams(ArgParseable, JsonSerializable):
             type=str,
         )
         target.add_argument(
-            f"--{prefix}-batch-size" if prefix else "--batch-size",
-            f"--{prefix}-batch" if prefix else "--batch",
+            "--batch-size" if not prefix else f"--{prefix}-batch-size",
+            "--batch" if not prefix else f"--{prefix}-batch",
             dest="batch_size",
             help="(Optional) How many inputs to batch into each slurm job. "
                  "When not supplied, uses default batch size.",
             type=int,
         )
         target.add_argument(
-            f"--{prefix}-cpus-per-task" if prefix else "--cpus-per-task",
-            f"--{prefix}-cpus" if prefix else "--cpus",
+            "--cpus-per-task" if not prefix else f"--{prefix}-cpus-per-task",
+            "--cpus" if not prefix else f"--{prefix}-cpus",
             dest="cpus_per_task",
             help="(Optional) How many CPUs to allocate for each slurm job. "
                  "When not supplied, uses default of "
@@ -131,15 +134,15 @@ class SlurmParams(ArgParseable, JsonSerializable):
             default=cls.DEFAULT_CPUS_PER_TASK,
         )
         target.add_argument(
-            f"--{prefix}-memory" if prefix else "--memory",
-            f"--{prefix}-mem" if prefix else "--mem",
+            "--memory" if not prefix else f"--{prefix}-memory",
+            "--mem" if not prefix else f"--{prefix}-mem",
             dest="memory",
             help="(Optional) Amount of memory to allocate for each slurm job. "
                  "When not supplied, uses default memory.",
             type=str,
         )
         target.add_argument(
-            f"--{prefix}-time" if prefix else "--time",
+            "--time" if not prefix else f"--{prefix}-time",
             dest="time",
             help="(Optional) Amount of time to allocate for each slurm job. "
                  "When not supplied, uses default time.",
@@ -676,29 +679,32 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             "Parameters used for initializing run."
         )
         target.add_argument(
-            f"--{prefix}-scratch-dir" if prefix else "--scratch-dir",
+            "--scratch-dir" if not prefix \
+                else f"--{prefix}-scratch-dir",
             dest="scratch_dir",
             help="Path to scratch directory on cluster.",
             type=Path,
         )
         target.add_argument(
-            *(["-r"] if not prefix else [] + [
-                f"--{prefix}-run-dir" if prefix else "--run-dir",
-            ]),
+            *(
+                ["-r", "--run-dir"] if not prefix else [f"--{prefix}-run-dir"]
+            ),
             dest="run_dir",
             help="Path to directory where previous run was created. "
                  "Allows performing multiple attempts for one input dataset.",
             type=Path,
         )
         target.add_argument(
-            f"--{prefix}-project-dir" if prefix else "--project-dir",
+            "--project-dir" if not prefix \
+                else f"--{prefix}-project-dir",
             dest="project_dir",
             help="(Optional) Path to project directory. "
                  "When not supplied, inferred from relative file structure.",
             type=Path,
         )
         target.add_argument(
-            f"--{prefix}-run-name" if prefix else "--run-name",
+            "--run-name" if not prefix \
+                else f"--{prefix}-run-name",
             dest="run_name",
             help="(Optional) Custom name of run. "
                  "When not supplied, infers name from input. "

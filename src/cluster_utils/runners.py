@@ -130,6 +130,7 @@ class LoginBackgroundRunner(ABC):
             array_job_data_dir: Path,
             log_file: Path,
             extra_job_wrap_args: list[str] | None = None,
+            wait=True,
     ) -> bool:
         """Submit a slurm array job to handle the compute portion of the job."""
 
@@ -143,35 +144,41 @@ class LoginBackgroundRunner(ABC):
             )
             return True
 
-        wrap_args = " ".join(subprocess.list2cmdline([arg]) for arg in [
-            self.paths.cluster_compute_shell_script,
-            "--paths-json", self.paths.attempt_paths_json,
-            "--project-dir", self.paths.project_dir,
-            "--python-module-path", self.paths.runner_module_path,
-            "--runner-stage", _RunnerStage.COMPUTE.name,
-        ] + (extra_job_wrap_args if extra_job_wrap_args is not None else []))
-        if logger.isEnabledFor(logging.DEBUG):
-            wrap_args += " --debug"
+        # TODO: Create class for storing data and building slurm command
+        wrap_args = [
+            subprocess.list2cmdline([arg]) for arg in [
+                self.paths.cluster_compute_shell_script,
+                "--paths-json",  self.paths.attempt_paths_json,
+                "--project-dir",  self.paths.project_dir,
+                "--python-module-path", self.paths.runner_module_path,
+                "--runner-stage",  _RunnerStage.COMPUTE.name,
+            ] + (extra_job_wrap_args if extra_job_wrap_args is not None else [])
+            + (["--debug"] if logger.isEnabledFor(logging.DEBUG) else [])
+        ]
+
+        args = [
+            "sbatch",
+            f"--job-name={job_name}",
+            f"--account={slurm_params.read_account_from_file(
+                self.paths.account_file
+            )}",
+            f"--cpus-per-task={slurm_params.cpus_per_task}",
+            f"--mem={slurm_params.memory}",
+            f"--time={slurm_params.time}",
+            f"--array=0-{max_array_index}",
+            f"--output={log_file}",
+            f"--error={log_file}",
+            f"--wrap={' '.join(wrap_args)}",
+        ]
+        if wait:
+            args.append("--wait")
 
         logger.info(f"Waiting for {job_name} slurm array job to complete...")
-        success = run_subprocess_command(
-            args=[
-                "sbatch",
-                f"--job-name={job_name}",
-                f"--account={slurm_params.read_account_from_file(
-                    self.paths.account_file
-                )}",
-                f"--cpus-per-task={slurm_params.cpus_per_task}",
-                f"--mem={slurm_params.memory}",
-                f"--time={slurm_params.time}",
-                f"--array=0-{max_array_index}",
-                f"--output={log_file}",
-                f"--error={log_file}",
-                "--wait",
-                f"--wrap={wrap_args}",
-            ],
-            logger=logger,
-        )
+        success = run_subprocess_command(args, logger=logger)
+        # success = run_subprocess_command(
+        #     args=["bash"] + wrap_args,
+        #     logger=logger,
+        # )
 
         if success:
             logger.info(f"{job_name} slurm jobs completed!")

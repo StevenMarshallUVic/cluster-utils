@@ -54,6 +54,7 @@ fi
 echo "INFO:${SCRIPT_NAME}:Initializing modules..."
 if ! command -v module &> /dev/null; then
     echo "ERROR:${SCRIPT_NAME}:'module' command is not installed. Are you sure you're running this on a cluster?"
+    exit 1
 fi
 if "$debug"; then
     module purge -q
@@ -67,17 +68,18 @@ fi
 venv_dir="${SLURM_TMPDIR}/.venv"
 echo "INFO:${SCRIPT_NAME}:Initializing python virtual environment..."
 if "$debug"; then
-        virtualenv --no-download "$venv_dir"
-        source "${venv_dir}/bin/activate"
-        pip install --no-index --upgrade pip
-        pip install --no-index --requirement "${project_dir}/requirements.txt"
-    else
-        virtualenv --no-download "$venv_dir" &> /dev/null
-        source "${venv_dir}/bin/activate" &> /dev/null
-        pip install --no-index --upgrade -qqq pip &> /dev/null
-        pip install --no-index --requirement "${project_dir}/requirements.txt" &> /dev/null
-    fi
+    virtualenv --no-download "$venv_dir"
+    source "${venv_dir}/bin/activate"
+    pip install --no-index --upgrade pip
+    pip install --no-index --requirement "${project_dir}/requirements.txt"
+else
+    virtualenv --no-download "$venv_dir" &> /dev/null
+    source "${venv_dir}/bin/activate" &> /dev/null
+    pip install --no-index --upgrade -qqq pip &> /dev/null
+    pip install --no-index --requirement "${project_dir}/requirements.txt" &> /dev/null
+fi
 
+export PYTHONPATH="${PYTHONPATH}:${project_dir}"
 pushd "$project_dir" &> /dev/null
 # Pass command line arguments to python (last to allow for overriding defaults)
 python -m "$python_module_path" \

@@ -10,8 +10,8 @@
 set -euo pipefail
 
 # Get root directory (directory this script is in)
+readonly SCRIPT_NAME="${0##*/}"
 ROOT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null||echo "$0")")"; readonly ROOT_DIR
-SCRIPT_NAME="${0##*/}"
 
 debug=false
 
@@ -63,7 +63,6 @@ else
         source "${venv_dir}/bin/activate"
     fi
 fi
-
 
 pushd "$ROOT_DIR" &> /dev/null
 # Pass command line arguments to python (last to allow for overriding defaults)

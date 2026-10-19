@@ -21,7 +21,11 @@ license-files = ["LICEN[CS]E*"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-cluster_utils= ["scripts/*.sh"]
+cluster_utils = ["scripts/*", "templates/*"]
+
+[project.scripts]
+cluster-init = "cluster_utils._cli:init_project"
+cluster-run = "cluster_utils._cli:perform_run"
 
 [project.urls]
 Homepage = "https://github.com/StevenMarshallUVic/cluster-utils"

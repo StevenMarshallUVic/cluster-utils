@@ -1,0 +1,5 @@
+# Configuration for the environment that runs will be launched in
+[environment]
+
+# Which modules need to be loaded
+modules = ["python/3.14.7"]
