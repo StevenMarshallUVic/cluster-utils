@@ -4,6 +4,8 @@ from pathlib import Path
 
 SRC_ROOT_DIR = Path(__file__).parent
 PACKAGE_NAME = SRC_ROOT_DIR.name
+# TODO: Replace with non-branch once merged
+PACKAGE_URL = "git+https://github.com/StevenMarshallUVic/cluster-utils.git@automated"
 
 logger = logging.getLogger(PACKAGE_NAME)
 root_logger = logging.getLogger()

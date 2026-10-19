@@ -4,6 +4,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
+from cluster_utils import PACKAGE_URL
 from cluster_utils._paths import ProjectPaths
 from cluster_utils._utils import ON_CLUSTER
 
@@ -74,20 +75,29 @@ class VenvCreator:
     def install_requirements(self) -> None:
         """Install python package requirements."""
 
-        if not self.paths.requirements_file.is_file():
+        requirements = [
+            PACKAGE_URL,
+        ]
+        if self.paths.requirements_file.is_file():
+            extra_reqs = self.paths.requirements_file.read_text().splitlines()
+            logger.info(
+                "Found %s requirements in requirements  file!",
+                len(extra_reqs)
+            )
+            requirements.extend(extra_reqs)
+        else:
             logger.warning(
                 "Requirements file not found at '%s'. "
-                "Skipping dependency installation.",
+                "installing only base requirements.",
                 self.paths.requirements_file,
             )
-            return
 
         logger.info(
-            "Installing requirements from '%s'...",
-            self.paths.requirements_file,
+            "Installing %s requirements...",
+            len(requirements),
         )
         subprocess.run(
-            self._pip_install_cmd + ["-r", self.paths.requirements_file],
+            self._pip_install_cmd + requirements,
             check=True
         )
 
