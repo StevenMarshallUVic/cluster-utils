@@ -2,4 +2,8 @@
 [environment]
 
 # Which modules need to be loaded
-modules = ["python/3.14.7"]
+modules =  ["StdEnv/2026", "python/3.14.7"]
+
+[login]
+# Relative path to python script to execute on login node after environment is initialized
+login-script = "login.py"

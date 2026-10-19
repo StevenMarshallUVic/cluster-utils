@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -40,14 +41,6 @@ class VenvCreator:
     def create_and_initialize_venv(self):
         """Perform full virtual environment setup."""
 
-        if self.paths.venv_dir.is_dir():
-            logger.warning(
-                "Found existing virtual environment at '%s'. "
-                "Skipping creation.",
-                self.paths.venv_dir,
-            )
-            return
-
         self.initialize_base_venv()
         self.upgrade_pip()
         self.install_requirements()
@@ -57,7 +50,7 @@ class VenvCreator:
         """Generate base virtual environment at the given directory."""
 
         if self.paths.venv_dir.is_dir():
-            logger.warning(
+            logger.info(
                 "Virtual environment already exists at '%s', "
                 "skipping base venv initialization.",
                 self.paths.venv_dir,
@@ -137,7 +130,7 @@ class LmodModuleLoader:
 
         exec(open(self.lmod_init).read())
 
-    def load_modules(self, modules: list[str], purge: bool = True) -> None:
+    def load_modules(self, modules: Iterable[str], purge: bool = True) -> None:
         if purge:
             self.purge_modules()
 

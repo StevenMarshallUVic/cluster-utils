@@ -6,6 +6,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
+from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import SrcPaths, ProjectPaths
 from cluster_utils._utils import LmodModuleLoader, VenvCreator, ON_CLUSTER
 
@@ -164,7 +165,7 @@ def perform_run(args: Iterable[str] | None = None):
         {sys.version.split()[0]},
     )
 
-    # TODO: Implement cluster_config.toml parsing
+    config = ClusterConfig.from_toml(paths.cluster_config_toml)
     simulation_script = SrcPaths.PREPROCESS_SCRIPT
 
     # ==========================================
@@ -172,11 +173,7 @@ def perform_run(args: Iterable[str] | None = None):
     # ==========================================
     if ON_CLUSTER:
         # TODO: Replace with values from config toml
-        LmodModuleLoader().load_modules([
-            "StdEnv/2026",
-            "python/3.14.7",
-            "apptainer/1.5.4",
-        ])
+        LmodModuleLoader().load_modules(config.environment.modules)
 
         # ==========================================
         # 3. VERIFY NEW ENVIRONMENT IN SUBPROCESS
