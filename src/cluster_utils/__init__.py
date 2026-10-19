@@ -9,8 +9,6 @@ if "site-packages" in os.path.abspath(__file__):
     # Package is installed, set logging level if not set
     if logger.level == logging.NOTSET:
         logger.setLevel(logging.INFO)
-
-    logger.addHandler(logging.NullHandler())
 else:
     # This is local development environment, set logging level
     logging.basicConfig()
