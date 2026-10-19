@@ -1,4 +1,9 @@
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+    # import pip._vendor.tomli as tomllib
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self, Any
