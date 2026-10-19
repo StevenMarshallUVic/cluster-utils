@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 logger = logging.getLogger(Path(__file__).parent.name)
+root_logger = logging.getLogger()
 
 DEV_LOG_LEVEL = logging.DEBUG
 PROD_LOG_LEVEL = logging.INFO
