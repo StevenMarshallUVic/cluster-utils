@@ -2,7 +2,8 @@ import logging
 import os
 from pathlib import Path
 
-PACKAGE_NAME = Path(__file__).parent.name
+SRC_ROOT_DIR = Path(__file__).parent
+PACKAGE_NAME = SRC_ROOT_DIR.name
 
 logger = logging.getLogger(PACKAGE_NAME)
 root_logger = logging.getLogger()

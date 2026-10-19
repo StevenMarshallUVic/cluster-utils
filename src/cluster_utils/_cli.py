@@ -1,3 +1,5 @@
+# Needed for backward compatibility of type hints using pipe operator
+from __future__ import annotations
 import argparse
 import logging
 import os
