@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
 from cluster_utils._utils import LMOD_ENV_VAR, ON_CLUSTER
