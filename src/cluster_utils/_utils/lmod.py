@@ -31,7 +31,7 @@ class LmodModuleLoader:
 
         logger.info("Loading modules...")
         for module in modules:
-            load_module(module)
+            self.load_module(module)
 
     def purge_modules(self) -> None:
         module("purge")
