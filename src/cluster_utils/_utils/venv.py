@@ -2,16 +2,12 @@ import logging
 import os
 import subprocess
 import sys
-from collections.abc import Iterable
 from dataclasses import dataclass
-from pathlib import Path
 
 from cluster_utils._paths import ProjectPaths
+from cluster_utils._utils import ON_CLUSTER
 
 logger = logging.getLogger(__name__)
-
-LMOD_ENV_VAR = "LMOD_CMD"
-ON_CLUSTER = LMOD_ENV_VAR in os.environ
 
 
 @dataclass(frozen=True)
@@ -111,36 +107,3 @@ class VenvCreator:
             self.paths.venv_bin_dir
         ) + os.pathsep + os.environ["PATH"]
         os.environ["VIRTUAL_ENV"] = str(self.paths.venv_dir)
-
-
-@dataclass(frozen=True)
-class LmodModuleLoader:
-    @property
-    def lmod_init_dir(self) -> Path:
-        return Path(
-            os.environ[LMOD_ENV_VAR]
-        ).parent.parent / "init"
-
-    def __post_init__(self):
-        if not self.lmod_init_dir.is_dir():
-            raise NotADirectoryError(
-                f"Lmod init directory not found at "
-                f"'{self.lmod_init_dir}'."
-            )
-
-        sys.path.append(str(self.lmod_init_dir))
-        from env_modules_python import module
-
-    def load_modules(self, modules: Iterable[str], purge: bool = True) -> None:
-        if purge:
-            self.purge_modules()
-
-        logger.info("Loading modules...")
-        for module in modules:
-            load_module(module)
-
-    def purge_modules(self) -> None:
-        module("purge")
-
-    def load_module(self, module_name: str) -> None:
-        module("load", module_name)

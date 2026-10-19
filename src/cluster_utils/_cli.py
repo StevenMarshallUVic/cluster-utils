@@ -8,7 +8,11 @@ from pathlib import Path
 
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import SrcPaths, ProjectPaths
-from cluster_utils._utils import LmodModuleLoader, VenvCreator, ON_CLUSTER
+from cluster_utils._utils import ON_CLUSTER
+from cluster_utils._utils.venv import VenvCreator
+
+if ON_CLUSTER:
+    from cluster_utils._utils.lmod import LmodModuleLoader
 
 logger = logging.getLogger(__name__)
 
