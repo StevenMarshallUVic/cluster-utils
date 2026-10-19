@@ -2,8 +2,12 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from importlib.resources import files, as_file
-from importlib.resources.abc import Traversable
+try:
+    from importlib.resources import files, as_file
+    from importlib.resources.abc import Traversable
+except ModuleNotFoundError:
+    from importlib_resources import files, as_file
+    from importlib_resources.abc import Traversable
 
 from cluster_utils import PACKAGE_NAME
 
