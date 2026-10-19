@@ -1,9 +1,11 @@
-# Configuration for the environment that runs will be launched in
+# Configuration for the environment that runs will be launched in.
 [environment]
 
-# Which modules need to be loaded
+# Which modules to load on cluster.
 modules =  ["StdEnv/2026", "python/3.14.7"]
 
+
+# Configuration for running python on login node.
 [login]
-# Relative path to python script to execute on login node after environment is initialized
+# Relative path to python script to execute on login node after environment is initialized.
 login-script = "login.py"

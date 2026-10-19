@@ -116,19 +116,20 @@ class VenvCreator:
 @dataclass(frozen=True)
 class LmodModuleLoader:
     @property
-    def lmod_init(self) -> Path:
+    def lmod_init_dir(self) -> Path:
         return Path(
             os.environ[LMOD_ENV_VAR]
-        ).parent.parent / "init" / "env_modules_python.py"
+        ).parent.parent / "init"
 
     def __post_init__(self):
-        if not self.lmod_init.is_file():
-            raise RuntimeError(
-                f"Lmod Python initialization script not found at "
-                f"'{self.lmod_init}'."
+        if not self.lmod_init_dir.is_dir():
+            raise NotADirectoryError(
+                f"Lmod init directory not found at "
+                f"'{self.lmod_init_dir}'."
             )
 
-        exec(open(self.lmod_init).read())
+        sys.path.append(str(self.lmod_init_dir))
+        from env_modules_python import module
 
     def load_modules(self, modules: Iterable[str], purge: bool = True) -> None:
         if purge:
