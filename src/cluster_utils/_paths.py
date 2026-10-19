@@ -5,11 +5,15 @@ from pathlib import Path
 from importlib.resources import files, as_file
 from importlib.resources.abc import Traversable
 
+from cluster_utils import PACKAGE_NAME
+
 CLUSTER_CONFIG_TOML_NAME = "cluster_config.toml"
+COMPUTE_SCRIPT_NAME = "compute.py"
+LOGIN_SCRIPT_NAME = "login.py"
 
 
 class SrcPaths:
-    SRC_ROOT_DIR = files("cluster_utils")
+    SRC_ROOT_DIR = files(PACKAGE_NAME)
     SCRIPTS_DIR = SRC_ROOT_DIR / "scripts"
     TEMPLATES_DIR = SRC_ROOT_DIR / "templates"
 
@@ -21,7 +25,8 @@ class SrcPaths:
             return path
 
     CLUSTER_CONFIG_TOML = get_file_path(TEMPLATES_DIR, CLUSTER_CONFIG_TOML_NAME)
-    PREPROCESS_SCRIPT = get_file_path(SRC_ROOT_DIR, "_preprocess.py")
+    COMPUTE_SCRIPT = get_file_path(TEMPLATES_DIR, COMPUTE_SCRIPT_NAME)
+    LOGIN_SCRIPT = get_file_path(TEMPLATES_DIR, LOGIN_SCRIPT_NAME)
 
 
 @dataclass(frozen=True)
@@ -29,6 +34,7 @@ class ProjectPaths:
     project_dir: Path
 
     ACCOUNT_TXT_NAME = ".account.txt"
+    LOG_FILE_NAME = "last_run.log"
     REQUIREMENTS_TXT_NAME = "requirements.txt"
     VENV_DIR_NAME = ".test_venv" # TODO: TEMP DEBUG
     # VENV_DIR_NAME = ".venv"
@@ -42,8 +48,24 @@ class ProjectPaths:
         return self.project_dir / CLUSTER_CONFIG_TOML_NAME
 
     @property
+    def compute_script(self):
+        return self.src_dir / COMPUTE_SCRIPT_NAME
+
+    @property
+    def log_file(self):
+        return self.project_dir / self.LOG_FILE_NAME
+
+    @property
+    def login_script(self):
+        return self.src_dir / LOGIN_SCRIPT_NAME
+
+    @property
     def requirements_file(self):
         return self.project_dir / self.REQUIREMENTS_TXT_NAME
+
+    @property
+    def src_dir(self):
+        return self.project_dir / "src"
 
     @property
     def venv_dir(self):

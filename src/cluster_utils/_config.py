@@ -20,30 +20,13 @@ class EnvironmentConfig:
 
 
 @dataclass(frozen=True)
-class LoginConfig:
-    login_script: str
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> Self:
-        instance = cls(
-            login_script=d.pop("login-script"),
-        )
-        if len(d) != 0:
-            raise ValueError(f"Remaining values: {d}.")
-
-        return instance
-
-
-@dataclass(frozen=True)
 class ClusterConfig:
     environment: EnvironmentConfig
-    login: LoginConfig
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Self:
         instance = cls(
             environment=EnvironmentConfig.from_dict(d.pop("environment")),
-            login=LoginConfig.from_dict(d.pop("login")),
         )
         if len(d) != 0:
             raise ValueError(f"Remaining values: {d}.")

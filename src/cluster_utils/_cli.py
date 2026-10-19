@@ -6,6 +6,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
+from cluster_utils import PACKAGE_NAME
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import SrcPaths, ProjectPaths
 from cluster_utils._utils import ON_CLUSTER
@@ -83,6 +84,8 @@ def init_project(args: Iterable[str] | None = None) -> None:
     project_paths = ProjectPaths(args.project_dir)
     files_to_check = [
         project_paths.cluster_config_toml,
+        project_paths.compute_script,
+        project_paths.login_script,
     ]
     if account:
         files_to_check.append(project_paths.account_txt)
@@ -114,6 +117,27 @@ def init_project(args: Iterable[str] | None = None) -> None:
         project_paths.cluster_config_toml,
     )
 
+    # Copy script templates to project src directory
+    project_paths.src_dir.mkdir(exist_ok=True)
+    project_paths.login_script.write_text(
+        SrcPaths.LOGIN_SCRIPT.read_text()
+    )
+    logger.info(
+        "Default login script created at '%s'. "
+        "Modify to implement custom logic to execute on login node "
+        "before submitting jobs to slurm.",
+        project_paths.login_script,
+    )
+    project_paths.compute_script.write_text(
+        SrcPaths.COMPUTE_SCRIPT.read_text()
+    )
+    logger.info(
+        "Default compute script created at '%s'."
+        "Modify to implement custom logic to execute on compute node "
+        "for submitted slurm jobs.",
+        project_paths.compute_script,
+    )
+
     # Write account text file if value provided
     if account:
         project_paths.account_txt.write_text(account)
@@ -138,7 +162,6 @@ def perform_run(args: Iterable[str] | None = None):
         arguments.
     """
     # TODO: Write tests
-    # TODO: Test on cluster
 
     logger.info("Performing run...")
     parser = argparse.ArgumentParser(
@@ -163,55 +186,43 @@ def perform_run(args: Iterable[str] | None = None):
     )
     args = parser.parse_args(args)
     paths = ProjectPaths(args.project_dir)
-
-    logger.info(
-        "Base python version: '%s'.",
-        {sys.version.split()[0]},
-    )
-
-    config = ClusterConfig.from_toml(paths.cluster_config_toml)
-    simulation_script = SrcPaths.PREPROCESS_SCRIPT
-
-    # ==========================================
-    # 2. LOAD MODULES VIA LMOD
-    # ==========================================
-    if ON_CLUSTER:
-        # TODO: Replace with values from config toml
-        LmodModuleLoader().load_modules(config.environment.modules)
-
-        # ==========================================
-        # 3. VERIFY NEW ENVIRONMENT IN SUBPROCESS
-        # ==========================================
-        # Because Lmod modified os.environ, "python" now points to the new version!
-        new_version = subprocess.check_output(
-            ["python", "--version"],
-            text=True
-        ).strip()
-        logger.info(
-            "Subprocess environment verified. Python version is now: '%s'.",
-            {new_version},
+    if not is_project_paths_initialized(paths):
+        raise RuntimeError(
+            "Trying to perform run on project that has not been initialized. "
+            "Run `cluster-init` first to initialize project file structure."
         )
 
-    # ==========================================
-    # 4. DYNAMIC VIRTUAL ENVIRONMENT MANAGEMENT
-    # ==========================================
+    config = ClusterConfig.from_toml(paths.cluster_config_toml)
+
+    if ON_CLUSTER:
+        LmodModuleLoader().load_modules(config.environment.modules)
+
     logger.info("Initializing run virtual environment...")
     VenvCreator(paths).create_and_initialize_venv()
 
-    # ==========================================
-    # 4. HAND OFF TO NEW PYTHON & SUBMIT SBATCH
-    # ==========================================
     logger.info(
-        "Executing %s in virtual environment...",
-        simulation_script,
+        "Executing '%s' in virtual environment...",
+        paths.login_script.name,
     )
 
     # Clean up the buffer before swapping
     sys.stdout.flush()
 
-    # Run a preprocessing python script natively using the new environment
-    # It will inherit the loaded modules seamlessly
-    os.execvp("python", ["python", simulation_script])
+    # Run login script in background
+    log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+    subprocess.Popen(
+        [
+            "python", paths.login_script,
+            "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel())
+        ],
+        env=os.environ.copy(),
+        stdout=log_fd,
+        stderr=subprocess.STDOUT,
+        close_fds=True,
+    )
+    os.close(log_fd)
+    exit(0)
+    # os.execvp("python", ["python", paths.login_script])
 
 
 def is_project_paths_initialized(
@@ -235,12 +246,18 @@ def is_project_paths_initialized(
         initialized project.
     """
 
-    if not paths.cluster_config_toml.is_file():
-        logger.warning(
-            "Could not find config at '%s'.",
-            paths.cluster_config_toml,
-        )
-        return False
+    for file, log_name in {
+        paths.cluster_config_toml: "config",
+        paths.login_script: "login script",
+        paths.compute_script: "compute script",
+    }.items():
+        if not file.is_file():
+            logger.warning(
+                "Could not find %s at '%s'.",
+                log_name,
+                file,
+            )
+            return False
 
     if paths.account_txt.is_file():
         account_contents = paths.account_txt.read_text().strip()

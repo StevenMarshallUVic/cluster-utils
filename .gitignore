@@ -23,3 +23,6 @@ dist/
 .account.txt
 .test_venv/
 cluster_config.toml
+last_run.log
+src/compute.py
+src/login.py
