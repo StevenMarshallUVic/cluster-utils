@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import subprocess
 import sys
@@ -7,6 +8,8 @@ from pathlib import Path
 
 from cluster_utils._paths import SrcPaths, ProjectPaths
 from cluster_utils._utils import LmodModuleLoader, VenvCreator, ON_CLUSTER
+
+logger = logging.getLogger(__name__)
 
 
 def init_project(args: Iterable[str] | None = None) -> None:
@@ -20,7 +23,7 @@ def init_project(args: Iterable[str] | None = None) -> None:
         arguments.
     """
 
-    print("Initializing project...")
+    logger.info("Initializing project...")
     parser = argparse.ArgumentParser(
         prog="Cluster Project Initialization",
         description="Handles initializing project for use with cluster-utils "
@@ -61,33 +64,38 @@ def init_project(args: Iterable[str] | None = None) -> None:
     # Prompt user to specify account if flag was not provided
     account: str | None = args.account if "account" in args else None
     if account is None and not no_input:
+        logger.warning(
+            "`--account` flag not provided. "
+            "Please specify Digital Research Alliance of Canada account to "
+            "charge usage to (e.g. 'def-name')?"
+        )
         manual_account = input(
-            "What Digital Research Alliance of Canada account should "
-            "usage be charged to (e.g. 'def-name')?"
-            "\nAccount (leave blank to skip): "
+            "INPUT: Account (leave blank to skip): "
         )
         if manual_account:
             account = manual_account
 
     project_paths = ProjectPaths(args.project_dir)
-    existing_files = [
-        p for p in [
-            project_paths.cluster_config_toml,
-            project_paths.account_txt,
-        ]
-        if p.exists()
+    files_to_check = [
+        project_paths.cluster_config_toml,
     ]
+    if account:
+        files_to_check.append(project_paths.account_txt)
+
+    existing_files = [p for p in files_to_check if p.exists()]
     force: bool = args.force
     if existing_files:
+        existing_files_str = ", ".join([str(f) for f in existing_files])
         if force:
-            print(
-                "WARNING: One or more initialization files already exists "
-                f"in this directory, overwriting: {existing_files}."
+            logger.warning(
+                "One or more initialization files already exists "
+                "in this directory, overwriting: %s.",
+                existing_files_str,
             )
         else:
             raise FileExistsError(
-                "Error: One or more initialization files already exists in "
-                f"this directory, skipping initialization: {existing_files}."
+                "One or more initialization files already exists in "
+                f"this directory, skipping initialization: {existing_files_str}."
                 "\nIf you want to overwrite these files, "
                 "use the `-f`/`--force` flag."
             )
@@ -96,17 +104,23 @@ def init_project(args: Iterable[str] | None = None) -> None:
     project_paths.cluster_config_toml.write_text(
         SrcPaths.CLUSTER_CONFIG_TOML.read_text()
     )
-    print(f"Default config created at '{project_paths.cluster_config_toml}'.")
+    logger.info(
+        "Default config created at '%s'.",
+        project_paths.cluster_config_toml,
+    )
 
     # Write account text file if value provided
     if account:
         project_paths.account_txt.write_text(account)
-        print(f"Account file created at '{project_paths.account_txt}'.")
+        logger.info(
+            "Account file created at '%s'.",
+            project_paths.account_txt
+        )
 
     if not is_project_paths_initialized(project_paths, account):
         raise Exception("Project directory structure failed to initialize.")
 
-    print("Project successfully initialized!")
+    logger.info("Project successfully initialized!")
 
 
 def perform_run(args: Iterable[str] | None = None):
@@ -121,7 +135,7 @@ def perform_run(args: Iterable[str] | None = None):
     # TODO: Write tests
     # TODO: Test on cluster
 
-    print("Initializing project...")
+    logger.info("Performing run...")
     parser = argparse.ArgumentParser(
         prog="Cluster Run Launcher",
         description="Handles launching a run on a cluster.",
@@ -145,18 +159,19 @@ def perform_run(args: Iterable[str] | None = None):
     args = parser.parse_args(args)
     paths = ProjectPaths(args.project_dir)
 
-    print(f"[Orchestrator] Starting with system default: {sys.version.split()[0]}")
+    logger.info(
+        "Base python version: '%s'.",
+        {sys.version.split()[0]},
+    )
 
-    # ==========================================
-    # 1. PARSE CONFIGS (Using default Python)
-    # ==========================================
-    # (You can use json, yaml, or configparser here)
+    # TODO: Implement cluster_config.toml parsing
     simulation_script = SrcPaths.PREPROCESS_SCRIPT
 
     # ==========================================
     # 2. LOAD MODULES VIA LMOD
     # ==========================================
     if ON_CLUSTER:
+        # TODO: Replace with values from config toml
         LmodModuleLoader().load_modules([
             "StdEnv/2026",
             "python/3.14.7",
@@ -171,19 +186,26 @@ def perform_run(args: Iterable[str] | None = None):
             ["python", "--version"],
             text=True
         ).strip()
-        print(f"[Orchestrator] Subprocess environment verified. 'python' is now: {new_version}")
+        logger.info(
+            "Subprocess environment verified. Python version is now: '%s'.",
+            {new_version},
+        )
 
     # ==========================================
     # 4. DYNAMIC VIRTUAL ENVIRONMENT MANAGEMENT
     # ==========================================
+    logger.info("Initializing run virtual environment...")
     VenvCreator(paths).create_and_initialize_venv()
 
     # ==========================================
     # 4. HAND OFF TO NEW PYTHON & SUBMIT SBATCH
     # ==========================================
-    print(f"[Orchestrator] Executing {simulation_script} with the updated stack...")
+    logger.info(
+        "Executing %s in virtual environment...",
+        simulation_script,
+    )
 
-    # Clean up the print buffer before swapping
+    # Clean up the buffer before swapping
     sys.stdout.flush()
 
     # Run a preprocessing python script natively using the new environment
@@ -213,22 +235,28 @@ def is_project_paths_initialized(
     """
 
     if not paths.cluster_config_toml.is_file():
-        print(f"Could not find config at '{paths.cluster_config_toml}'.")
+        logger.warning(
+            "Could not find config at '%s'.",
+            paths.cluster_config_toml,
+        )
         return False
 
     if paths.account_txt.is_file():
         account_contents = paths.account_txt.read_text().strip()
         if account:
             if account_contents.strip() != account:
-                print(
-                    f"Expected account '{account}', "
-                    f"got account '{account_contents}'."
+                logger.warning(
+                    "Expected account '%s', got account '%s'.",
+                    account,
+                    account_contents,
                 )
                 return False
         elif len(account_contents) == 0:
-            print(f"Empty account file at '{paths.account_txt}'.")
+            logger.warning(
+                "Empty account file at '%s'.",
+                paths.account_txt,
+            )
             return False
-
     return True
 
 

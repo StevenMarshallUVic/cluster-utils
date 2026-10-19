@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -5,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cluster_utils._paths import ProjectPaths
+
+logger = logging.getLogger(__name__)
 
 LMOD_ENV_VAR = "LMOD_CMD"
 ON_CLUSTER = LMOD_ENV_VAR in os.environ
@@ -38,9 +41,10 @@ class VenvCreator:
         """Perform full virtual environment setup."""
 
         if self.paths.venv_dir.is_dir():
-            print(
-                f"Found existing virtual environment at {self.paths.venv_dir}. "
-                f"Skipping creation."
+            logger.warning(
+                "Found existing virtual environment at '%s'. "
+                "Skipping creation.",
+                self.paths.venv_dir,
             )
             return
 
@@ -53,13 +57,17 @@ class VenvCreator:
         """Generate base virtual environment at the given directory."""
 
         if self.paths.venv_dir.is_dir():
-            print(
-                f"Virtual environment already exists at {self.paths.venv_dir}, "
-                f"skipping base venv initialization."
+            logger.warning(
+                "Virtual environment already exists at '%s', "
+                "skipping base venv initialization.",
+                self.paths.venv_dir,
             )
             return
 
-        print(f"Creating virtual environment at: {self.paths.venv_dir}")
+        logger.info(
+            "Creating virtual environment at '%s'.",
+            self.paths.venv_dir,
+        )
         subprocess.run(
             [self._active_python, "-m", "venv", self.paths.venv_dir],
             check=True
@@ -68,7 +76,7 @@ class VenvCreator:
     def upgrade_pip(self) -> None:
         """Upgrade pip to latest version."""
 
-        print("Upgrading pip...")
+        logger.info("Upgrading pip...")
         subprocess.run(
             self._pip_install_cmd + ["--upgrade", "pip"],
             check=True
@@ -78,13 +86,17 @@ class VenvCreator:
         """Install python package requirements."""
 
         if not self.paths.requirements_file.is_file():
-            print(
-                f"[Warning] {self.paths.requirements_file} not found. "
-                f"Skipping dependency installation."
+            logger.warning(
+                "Requirements file not found at '%s'. "
+                "Skipping dependency installation.",
+                self.paths.requirements_file,
             )
             return
 
-        print(f"Installing requirements from {self.paths.requirements_file}...")
+        logger.info(
+            "Installing requirements from '%s'...",
+            self.paths.requirements_file,
+        )
         subprocess.run(
             self._pip_install_cmd + ["-r", self.paths.requirements_file],
             check=True
@@ -129,7 +141,7 @@ class LmodModuleLoader:
         if purge:
             self.purge_modules()
 
-        print(f"Loading modules...")
+        logger.info("Loading modules...")
         for module in modules:
             load_module(module)
 

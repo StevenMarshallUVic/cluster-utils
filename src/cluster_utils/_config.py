@@ -25,7 +25,6 @@ class ClusterConfig:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Self:
-        print(d)
         instance = cls(
             environment=EnvironmentConfig.from_dict(d.pop("environment")),
         )

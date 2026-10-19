@@ -12,8 +12,13 @@ Utilities for working with Digital Research Alliance of Canada clusters.
     - [x] Default is "python/3.12"
 
 ## Quickstart Guide
-1. Run command `cluster-init` to initialize the project file structure.
+1. Create virtual environment.
+   - On cluster (Use latest python version and create venv in working directory): 
+     - `module load StdEnv/2026 && module load python && virtualenv --no-download .venv`
+2. Install this repository as a python package:
+    - `pip install git+https://github.com/StevenMarshallUVic/cluster-utils.git`
+3. Run command `cluster-init` to initialize the project file structure.
    - Use `-h`/`--help` flag to see explanation of arguments.
-2. Adjust `cluster_config.toml` for your given workflow.
-3. Run command `cluster-run <args>` to submit a run.
+4. Adjust `cluster_config.toml` for your given workflow.
+5. Run command `cluster-run <args>` to submit a run.
    - Use `-h`/`--help` flag to see explanation of arguments.
