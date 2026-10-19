@@ -46,5 +46,4 @@ class ClusterConfig:
                 f"Cluster config TOML not found at '{toml}'"
             )
 
-        with open(toml, "rb") as f:
-            return cls.from_dict(tomllib.load(f))
+        return cls.from_dict(tomllib.loads(toml.read_text()))
