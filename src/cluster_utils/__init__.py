@@ -10,6 +10,8 @@ PROD_LOG_LEVEL = logging.INFO
 
 # Set default logging levels based on whether package is installed
 if "site-packages" in os.path.abspath(__file__):
+    print("Logger level = ", logger.level)
+    print("Root logger level = ", root_logger.level)
     # Package is installed, set logging level if not set by installed project
     if not root_logger.handlers:
         print("No root logger handlers, using basicConfig")
