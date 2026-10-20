@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import pickle
 import subprocess
 import sys
 from collections.abc import Iterable
@@ -166,16 +165,8 @@ def perform_run(args: Iterable[str] | None = None):
         description="Handles launching a run on a cluster.",
         add_help=True,
     )
-    # TODO: Use account argument
     parser.add_argument(
-        "-a", "--account",
-        help="(Optional) Account to charge slurm usage to. "
-             "If not provided, will search for account file in project.",
-        type=str,
-        required=False,
-    )
-    parser.add_argument(
-        "-d", "--project_dir",
+        "-d", "--project-dir",
         help="(Optional) Root directory of project to initialize. "
              "When not provided, defaults to current working directory.",
         type=Path,
@@ -209,7 +200,7 @@ def perform_run(args: Iterable[str] | None = None):
         [
             "python", paths.cluster_runner_script,
             "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel())
-        ],
+        ] + sys.argv[1:],
         env=os.environ.copy(),
         stdout=log_fd,
         stderr=subprocess.STDOUT,
