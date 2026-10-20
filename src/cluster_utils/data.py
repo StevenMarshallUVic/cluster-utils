@@ -67,15 +67,16 @@ class SlurmParams(ArgParseable, JsonSerializable):
         Amount of time to allocate for each slurm job.
     """
 
+    # TODO: Add support for GPUs
     DEFAULT_CPUS_PER_TASK = 1
 
     account: str
     batch_size: int
     memory: str
     time: str
-
     cpus_per_task: int = DEFAULT_CPUS_PER_TASK
 
+    # TODO: Replace with parameter in `from_args` method
     @staticmethod
     def read_account_from_file(account_file: Path) -> str | None:
         """Parse an account from a plain-text file containing the account.
@@ -422,6 +423,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         self.current_attempt_dir.mkdir(parents=True)
         self.logs_dir.mkdir(parents=True)
 
+    # TODO: Replace hacks with proper implementation
     @classmethod
     def construct_runs_root_dir(cls, scratch_dir: Path) -> Path:
         """Hacky way to bypass creating instance to get access to paths.

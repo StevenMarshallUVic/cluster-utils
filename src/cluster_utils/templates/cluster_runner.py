@@ -9,10 +9,43 @@ from pathlib import Path
 from typing import Self
 
 from cluster_utils import get_environment_default_log_level
+from cluster_utils.data import ArrayJobData, Paths, SlurmParams
 from cluster_utils.runners import ClusterRunners, ComputeRunner, LoginRunner
 from cluster_utils.utils import ArgParseable
 
+# TODO: Create global logger creation function
 logger = logging.getLogger(Path(__file__).stem)
+
+
+@dataclass(frozen=True)
+class CustomPaths(Paths):
+    """Custom paths."""
+
+    # [Required] Name of project
+    @classmethod
+    def project_name(cls) -> str:
+        raise NotImplementedError()
+
+    # TODO: Determine if this is needed?
+    @property
+    def runner_module_path(self) -> str:
+        raise NotImplementedError()
+
+    def initialize_run_full(self, *args, **kwargs) -> None:
+        raise NotImplementedError()
+
+
+@dataclass(frozen=True)
+class CustomSlurmParams(SlurmParams):
+    """Slurm parameters for data pipeline stage of AlphaFold 3."""
+
+    # Override default slurm params here...
+
+    # (Optional) Prefix to add to all command line arguments.
+    #     Helpful when defining more than one custom SlurmParams.
+    @staticmethod
+    def argument_prefix() -> str | None:
+        return None
 
 
 @dataclass(frozen=True)
@@ -70,6 +103,7 @@ class CustomClusterRunners(ClusterRunners):
 
 
 def main():
+    # TODO: Extract log level parsing to other script
     parser = argparse.ArgumentParser(description="Logger Management")
     parser.add_argument(
         "--log-level",

@@ -195,7 +195,7 @@ def perform_run(args: Iterable[str] | None = None):
     config = ClusterConfig.from_toml(paths.cluster_config_toml)
 
     if ON_CLUSTER:
-        LmodModuleLoader().load_modules(config.environment.modules)
+        LmodModuleLoader().load_modules(config.login_environment.modules)
 
     logger.info("Initializing run virtual environment...")
     VenvCreator(paths).create_and_initialize_venv()

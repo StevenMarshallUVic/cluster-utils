@@ -70,7 +70,7 @@ class LoginRunner(ABC):
         """
         raise NotImplementedError()
 
-    def _submit_array_job(
+    def submit_array_job(
             self,
             job_name: str,
             slurm_params: SlurmParams,
@@ -134,7 +134,7 @@ class LoginRunner(ABC):
 
         return success
 
-    def _submit_single_job(self) -> None:
+    def submit_single_job(self) -> None:
         """Submit a single slurm job to handle the compute portion of the job.
         """
         raise NotImplementedError()
