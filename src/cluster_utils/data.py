@@ -466,7 +466,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         if (run_dir is None) == (input_path is None):
             raise ValueError(
                 "Invalid command line arguments. "
-                "Must supply exactly one of '--run-dir' and '--input-path'."
+                "Must supply exactly one of '--run-dir' or '--input-path'."
             )
 
         if run_dir is not None:

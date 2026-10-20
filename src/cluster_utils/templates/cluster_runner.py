@@ -37,7 +37,7 @@ class CustomPaths(Paths):
 
 @dataclass(frozen=True)
 class CustomSlurmParams(SlurmParams):
-    """Slurm parameters for data pipeline stage of AlphaFold 3."""
+    """Custom slurm parameters."""
 
     # Override default slurm params here...
 

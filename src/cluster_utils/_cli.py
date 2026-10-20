@@ -182,7 +182,7 @@ def perform_run(args: Iterable[str] | None = None):
         default=Path.cwd(),
         required=False,
     )
-    args = parser.parse_args(args)
+    args, _ = parser.parse_known_args(args)
 
     # TODO: Create dataclass for storing runtime args?
     paths = ProjectPaths(args.project_dir)
