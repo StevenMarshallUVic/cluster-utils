@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -685,6 +686,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             dest="scratch_dir",
             help="Path to scratch directory on cluster.",
             type=Path,
+            default=os.getenv("SCRATCH"),
         )
         target.add_argument(
             *(

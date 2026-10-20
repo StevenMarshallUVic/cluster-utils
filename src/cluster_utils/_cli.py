@@ -196,11 +196,13 @@ def perform_run(args: Iterable[str] | None = None):
     # Run login script in background
     sys.stdout.flush()
     log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+    args = [
+        "python", paths.cluster_runner_script,
+        "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel())
+    ] + sys.argv[1:]
+
     subprocess.Popen(
-        [
-            "python", paths.cluster_runner_script,
-            "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel())
-        ] + sys.argv[1:],
+        args,
         env=os.environ.copy(),
         stdout=log_fd,
         stderr=subprocess.STDOUT,

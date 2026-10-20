@@ -9,12 +9,33 @@ from pathlib import Path
 from typing import Self
 
 from cluster_utils import get_environment_default_log_level
-from cluster_utils.data import ArrayJobData, Paths, SlurmParams
+from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams
 from cluster_utils.runners import ClusterRunners, ComputeRunner, LoginRunner
 from cluster_utils.utils import ArgParseable
 
 # TODO: Create global logger creation function
 logger = logging.getLogger(Path(__file__).stem)
+
+
+@dataclass(frozen=True)
+class CustomInput(Input):
+    """Custom inputs."""
+
+    @classmethod
+    def add_arguments(
+            cls,
+            parser: argparse.ArgumentParser,
+            group: argparse._ArgumentGroup | None = None,
+    ) -> None:
+        if group is None:
+            group = parser.add_argument_group(
+                "Custom Input Parameters",
+                ""
+            )
+
+        # (Optional) Add custom arguments here...
+
+        Input.add_arguments(parser, group)
 
 
 @dataclass(frozen=True)
@@ -39,7 +60,7 @@ class CustomPaths(Paths):
 class CustomSlurmParams(SlurmParams):
     """Custom slurm parameters."""
 
-    # Override default slurm params here...
+    # [Required] Override default slurm params here...
 
     # (Optional) Prefix to add to all command line arguments.
     #     Helpful when defining more than one custom SlurmParams.
@@ -50,12 +71,10 @@ class CustomSlurmParams(SlurmParams):
 
 @dataclass(frozen=True)
 class CustomLoginRunner(LoginRunner):
-
-    # TODO: Decide if this is necessary
     # [Required] Types to parse arguments for
     @staticmethod
     def additional_cmd_line_arguments() -> list[type[ArgParseable]]:
-        return []
+        return [CustomInput, CustomPaths, CustomSlurmParams]
 
     # (Optional) Initialize run
     def initialize(self) -> bool:
@@ -111,7 +130,7 @@ def main():
         default=get_environment_default_log_level(),
         help="Numeric logging level passed from parent process."
     )
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     logger.setLevel(args.log_level)
 
     CustomClusterRunners.from_args().run_stage()
