@@ -1,3 +1,8 @@
+"""Configurations for a project.
+
+NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
+"""
+
 try:
     import tomllib
 except ModuleNotFoundError:

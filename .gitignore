@@ -19,10 +19,10 @@ dist/
 .DS_Store
 
 # Project files
-# TODO: Temp debug
 .account.txt
+# TODO: Temp debug
 .test_venv/
+.venv-3.9.25/
 cluster_config.toml
 last_run.log
-src/compute.py
-src/login.py
+src/cluster_runner.py

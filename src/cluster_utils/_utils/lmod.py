@@ -34,7 +34,9 @@ class LmodModuleLoader:
             self.load_module(module)
 
     def purge_modules(self) -> None:
+        logger.info("Purging modules...")
         module("purge")
 
     def load_module(self, module_name: str) -> None:
+        logger.debug("Loading module '%s'...", module_name)
         module("load", module_name)

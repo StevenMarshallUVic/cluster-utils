@@ -4,107 +4,54 @@ import argparse
 import logging
 import shutil
 import subprocess
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 from cluster_utils.data import ArrayJobData, Paths, SlurmParams
-from cluster_utils.utils import EnumAction, _RunnerStage, run_subprocess_command
+from cluster_utils.utils import EnumAction, _RunnerStage, \
+    run_subprocess_command, log_args_help, ArgParseable
 
 logger = logging.getLogger(Path(__file__).name)
 
 
-class LoginForegroundRunner(ABC):
-    """Abstract class that handles running the portion of a run that occurs
-    on the main thread."""
-
-    @property
-    @abstractmethod
-    def paths(self) -> Paths:
-        """Abstract method for specifying Paths class or subclass."""
-        pass
-
-    def run_foreground(self) -> bool:
-        """Perform foreground portion of run."""
-
-        if not self._initialize_foreground():
-            return False
-
-        return self._run_in_background()
-
-    @abstractmethod
-    def _initialize_foreground(self) -> bool:
-        """Abstract method for initializing a run in the foreground.
-
-        Returns
-        -------
-        Whether initialization was successful.
-        """
-        return True
-
-    def _run_in_background(self) -> bool:
-        """Perform rest of run in the background.
-
-        Returns
-        -------
-        Whether run was successfully submitted to background.
-        """
-
-        # sys.executable to use current python environment
-        command = [
-            sys.executable,
-            "-m", self.paths.runner_module_path,
-            "--paths-json", self.paths.attempt_paths_json,
-            "--runner-stage", _RunnerStage.BACKGROUND.name,
-        ]
-        if logger.isEnabledFor(logging.DEBUG):
-            command.append("--debug")
-
-        logger.info("Performing run in background. Logs can be found at "
-                    f"'{self.paths.login_background_log_file}'.")
-        with open(self.paths.login_background_log_file, "w") as log_file:
-            # Run as background task
-            process = subprocess.Popen(
-                command,
-                stdout=log_file,
-                stderr=log_file,
-                start_new_session=True
-            )
-
-            return process.wait() == 0
-
-
 @dataclass(frozen=True)
-class LoginBackgroundRunner(ABC):
+class LoginRunner(ABC):
     """Abstract class that handles running the portion of a run that occurs
-    in the background."""
+    in the background on a login node."""
 
+    # TODO: Figure out best way to handle this variable
     paths: Paths
 
-    def run_background(self) -> bool:
-        """Perform background portion of run.
+    @staticmethod
+    @abstractmethod
+    def additional_cmd_line_arguments() -> list[type[ArgParseable]]:
+        """Abstract property for specifying additional argument sources."""
+        return []
+
+    def run(self) -> bool:
+        """Perform login portion of run.
 
         Returns
         -------
-        Whether background processes were run successfully.
+        Whether login tasks were run successfully.
         """
 
-        if not self._initialize_background():
+        if not self.initialize():
             return False
 
-        if not self._submit_compute_jobs():
+        if not self.submit_compute_jobs():
             logger.warning(
                 "One or more compute jobs failed, skipping post processing."
             )
             return False
 
-        return self._post_process_background()
+        return self.post_process()
 
-    def _initialize_background(self) -> bool:
-        """Virtual method for initializing a run in the background.
+    def initialize(self) -> bool:
+        """Virtual method for initializing a run.
 
         Returns
         -------
@@ -113,7 +60,7 @@ class LoginBackgroundRunner(ABC):
         return True
 
     @abstractmethod
-    def _submit_compute_jobs(self) -> bool:
+    def submit_compute_jobs(self) -> bool:
         """Virtual method for submitting compute jobs.
 
         Returns
@@ -121,7 +68,7 @@ class LoginBackgroundRunner(ABC):
         bool
             Whether compute jobs completed successfully.
         """
-        pass
+        raise NotImplementedError()
 
     def _submit_array_job(
             self,
@@ -192,15 +139,50 @@ class LoginBackgroundRunner(ABC):
         """
         raise NotImplementedError()
 
-    def _post_process_background(self) -> bool:
-        """Virtual method for performing post-processing in the background
-        after the compute stage completes.
+    def post_process(self) -> bool:
+        """Virtual method for performing post-processing after the compute
+        stage completes.
 
         Returns
         -------
         Whether post-processing was successful.
         """
         return True
+
+    @classmethod
+    @abstractmethod
+    def from_custom_args(cls, args: argparse.Namespace) -> Self:
+        raise NotImplementedError()
+
+    @classmethod
+    def from_args(cls) -> Self:
+        """Create instance from command line arguments."""
+
+        parser = argparse.ArgumentParser(
+            prog="Login Runner",
+            description="Perform logic on login node of Digital Research Alliance of Canada cluster.",
+            epilog="See README.md for more information.",
+            conflict_handler="resolve",
+            add_help=False,
+        )
+        parser.add_argument(
+            "-h", "--help",
+            action="store_true",
+            help="show this help message and exit"
+        )
+        args, _ = parser.parse_known_args()
+        if args.help:
+            log_args_help(
+                parser,
+                cls.additional_cmd_line_arguments(),
+            )
+            exit(0)
+
+        for argument_source in cls.additional_cmd_line_arguments():
+            argument_source.add_arguments(parser)
+
+        args, _ = parser.parse_known_args()
+        return cls.from_custom_args(args)
 
 
 @dataclass(frozen=True)
@@ -221,15 +203,15 @@ class ComputeRunner(ABC):
         """Path to output directory on the compute node."""
         return self.compute_dir / "output"
 
-    def run_compute(self) -> bool:
+    def run(self) -> bool:
         """Perform a compute run."""
 
-        if not self._initialize_compute_file_structure():
+        if not self._initialize_file_structure():
             return False
 
-        return self.perform_compute()
+        return self.perform_computations()
 
-    def _initialize_compute_file_structure(self) -> bool:
+    def _initialize_file_structure(self) -> bool:
         """Initialize compute file structure.
 
         Returns
@@ -264,7 +246,7 @@ class ComputeRunner(ABC):
         return True
 
     @abstractmethod
-    def perform_compute(self) -> bool:
+    def perform_computations(self) -> bool:
         """Abstract method for performing the compute logic on the compute node.
 
         Returns
@@ -297,6 +279,33 @@ class ComputeRunner(ABC):
                             f"({input_index}/{len(input_files)})...")
             func(input_file)
 
+    @classmethod
+    def from_args(cls) -> Self:
+        """Create instance from command line arguments."""
+
+        parser = argparse.ArgumentParser(
+            prog="Cluster Runner",
+            description="Perform logic on compute node of Digital Research Alliance of Canada cluster.",
+            epilog="See README.md for more information.",
+            conflict_handler="resolve",
+        )
+        ArrayJobInstanceParams.add_arguments(parser)
+        args, _ = parser.parse_known_args()
+
+        array_job_params = ArrayJobInstanceParams.from_args(args)
+        paths = Paths.from_json(array_job_params.paths_json)
+        job_data = ArrayJobData.from_json(
+            ArrayJobData.build_json_path(
+                paths.attempt_array_job_data_dir,
+                array_job_params.array_job_index,
+            )
+        )
+
+        return cls(
+            compute_dir=array_job_params.compute_dir,
+            job_data=job_data,
+        )
+
 
 @dataclass(frozen=True)
 class ClusterRunners(ABC):
@@ -306,14 +315,8 @@ class ClusterRunners(ABC):
 
     @property
     @abstractmethod
-    def login_foreground_runner(self) -> LoginForegroundRunner:
-        """Abstract property for specifying which foreground runner to use."""
-        pass
-
-    @property
-    @abstractmethod
-    def login_background_runner(self) -> LoginBackgroundRunner:
-        """Abstract property for specifying which background runner to use."""
+    def login_runner(self) -> LoginRunner:
+        """Abstract property for specifying which login runner to use."""
         pass
 
     @property
@@ -331,12 +334,10 @@ class ClusterRunners(ABC):
         """
 
         match self._stage:
-            case _RunnerStage.FOREGROUND:
-                return self.login_foreground_runner.run_foreground()
-            case _RunnerStage.BACKGROUND:
-                return self.login_background_runner.run_background()
+            case _RunnerStage.LOGIN:
+                return self.login_runner.run()
             case _RunnerStage.COMPUTE:
-                return self.compute_runner.run_compute()
+                return self.compute_runner.run()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 
@@ -354,7 +355,7 @@ class ClusterRunners(ABC):
             "--runner-stage",
             help="Stage to perform for runner. Only for internal use.",
             type=_RunnerStage,
-            default=_RunnerStage.FOREGROUND,
+            default=_RunnerStage.LOGIN,
             action=EnumAction,
         )
         args, _ = parser.parse_known_args()

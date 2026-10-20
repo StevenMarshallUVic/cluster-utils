@@ -1,11 +1,13 @@
 """Centralized path and resource management for the package.
 
+NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
+
 Backward Compatibility Notes:
 - It is better practice to use importlib to handle resolving paths between
   files in packages since it has support for complexities such as the package
   being zipped.
   - Due to clusters using python 3.9.25 as default, this module is not
-    available in the standard library on clusters.
+    available in the standard library on clusters, so pathlib used instead.
 """
 
 import os
@@ -15,17 +17,17 @@ from pathlib import Path
 from cluster_utils import SRC_ROOT_DIR
 
 CLUSTER_CONFIG_TOML_NAME = "cluster_config.toml"
-COMPUTE_SCRIPT_NAME = "compute.py"
-LOGIN_SCRIPT_NAME = "login.py"
+CLUSTER_RUNNER_SCRIPT_NAME = "cluster_runner.py"
 
 
 class SrcPaths:
     SCRIPTS_DIR = SRC_ROOT_DIR / "scripts"
     TEMPLATES_DIR = SRC_ROOT_DIR / "templates"
 
+    RUNNER_SCRIPT = SRC_ROOT_DIR / "_runner.py"
+
     CLUSTER_CONFIG_TOML = TEMPLATES_DIR / CLUSTER_CONFIG_TOML_NAME
-    COMPUTE_SCRIPT = TEMPLATES_DIR / COMPUTE_SCRIPT_NAME
-    LOGIN_SCRIPT = TEMPLATES_DIR / LOGIN_SCRIPT_NAME
+    CLUSTER_RUNNER_SCRIPT = TEMPLATES_DIR / CLUSTER_RUNNER_SCRIPT_NAME
 
 
 @dataclass(frozen=True)
@@ -47,16 +49,12 @@ class ProjectPaths:
         return self.project_dir / CLUSTER_CONFIG_TOML_NAME
 
     @property
-    def compute_script(self):
-        return self.src_dir / COMPUTE_SCRIPT_NAME
+    def cluster_runner_script(self):
+        return self.src_dir / CLUSTER_RUNNER_SCRIPT_NAME
 
     @property
     def log_file(self):
         return self.project_dir / self.LOG_FILE_NAME
-
-    @property
-    def login_script(self):
-        return self.src_dir / LOGIN_SCRIPT_NAME
 
     @property
     def requirements_file(self):

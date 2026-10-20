@@ -88,7 +88,7 @@ class VenvCreator:
         else:
             logger.warning(
                 "Requirements file not found at '%s'. "
-                "installing only base requirements.",
+                "Installing only base requirements.",
                 self.paths.requirements_file,
             )
 

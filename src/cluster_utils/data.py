@@ -202,9 +202,8 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
     @property
     def src_dir(self) -> Path:
-        """Source directory of Reseek project."""
+        """Source directory of project."""
         return self.project_dir / "src"
-
 
     @property
     def cluster_compute_shell_script(self) -> Path:

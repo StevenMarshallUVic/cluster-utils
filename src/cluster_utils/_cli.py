@@ -1,8 +1,14 @@
+"""Handle running functions from command line.
+
+NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
+"""
+
 # Needed for backward compatibility of type hints using pipe operator
 from __future__ import annotations
 import argparse
 import logging
 import os
+import pickle
 import subprocess
 import sys
 from collections.abc import Iterable
@@ -86,8 +92,7 @@ def init_project(args: Iterable[str] | None = None) -> None:
     project_paths = ProjectPaths(args.project_dir)
     files_to_check = [
         project_paths.cluster_config_toml,
-        project_paths.compute_script,
-        project_paths.login_script,
+        project_paths.cluster_runner_script,
     ]
     if account:
         files_to_check.append(project_paths.account_txt)
@@ -121,23 +126,13 @@ def init_project(args: Iterable[str] | None = None) -> None:
 
     # Copy script templates to project src directory
     project_paths.src_dir.mkdir(exist_ok=True)
-    project_paths.login_script.write_text(
-        SrcPaths.LOGIN_SCRIPT.read_text()
+    project_paths.cluster_runner_script.write_text(
+        SrcPaths.CLUSTER_RUNNER_SCRIPT.read_text()
     )
     logger.info(
-        "Default login script created at '%s'. "
-        "Modify to implement custom logic to execute on login node "
-        "before submitting jobs to slurm.",
-        project_paths.login_script,
-    )
-    project_paths.compute_script.write_text(
-        SrcPaths.COMPUTE_SCRIPT.read_text()
-    )
-    logger.info(
-        "Default compute script created at '%s'."
-        "Modify to implement custom logic to execute on compute node "
-        "for submitted slurm jobs.",
-        project_paths.compute_script,
+        "Default cluster runner script created at '%s'."
+        "Modify template to implement custom logic.",
+        project_paths.cluster_runner_script,
     )
 
     # Write account text file if value provided
@@ -171,6 +166,7 @@ def perform_run(args: Iterable[str] | None = None):
         description="Handles launching a run on a cluster.",
         add_help=True,
     )
+    # TODO: Use account argument
     parser.add_argument(
         "-a", "--account",
         help="(Optional) Account to charge slurm usage to. "
@@ -187,6 +183,8 @@ def perform_run(args: Iterable[str] | None = None):
         required=False,
     )
     args = parser.parse_args(args)
+
+    # TODO: Create dataclass for storing runtime args?
     paths = ProjectPaths(args.project_dir)
     if not is_project_paths_initialized(paths):
         raise RuntimeError(
@@ -202,19 +200,14 @@ def perform_run(args: Iterable[str] | None = None):
     logger.info("Initializing run virtual environment...")
     VenvCreator(paths).create_and_initialize_venv()
 
-    logger.info(
-        "Executing '%s' in virtual environment...",
-        paths.login_script.name,
-    )
-
-    # Clean up the buffer before swapping
-    sys.stdout.flush()
+    logger.info("Passing execution to virtual environment in background...")
 
     # Run login script in background
+    sys.stdout.flush()
     log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
     subprocess.Popen(
         [
-            "python", paths.login_script,
+            "python", paths.cluster_runner_script,
             "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel())
         ],
         env=os.environ.copy(),
@@ -250,8 +243,7 @@ def is_project_paths_initialized(
 
     for file, log_name in {
         paths.cluster_config_toml: "config",
-        paths.login_script: "login script",
-        paths.compute_script: "compute script",
+        paths.cluster_runner_script: "compute script",
     }.items():
         if not file.is_file():
             logger.warning(

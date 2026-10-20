@@ -16,10 +16,8 @@ from typing import Any
 class _RunnerStage(StrEnum):
     """Stages of cluster program."""
 
-    FOREGROUND = auto()
-    """Stage performed on the main thread of the running job."""
-    BACKGROUND = auto()
-    """Stage performed in a background process."""
+    LOGIN = auto()
+    """Stage performed in the background on a cluster's login node."""
     COMPUTE = auto()
     """Stage performed on a cluster's compute node."""
 

@@ -13,8 +13,6 @@ root_logger = logging.getLogger()
 DEV_LOG_LEVEL = logging.DEBUG
 PROD_LOG_LEVEL = logging.INFO
 
-import sys
-print(sys.version) # TODO: temp debug
 
 def is_dev_environment() -> bool:
     return not "site-packages" in os.path.abspath(__file__)
