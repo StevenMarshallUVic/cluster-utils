@@ -5,6 +5,7 @@ import sys
 from dataclasses import dataclass
 
 from cluster_utils import PACKAGE_URL
+from cluster_utils._config import EnvironmentConfig
 from cluster_utils._paths import ProjectPaths
 from cluster_utils._utils import ON_CLUSTER
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class VenvCreator:
     paths: ProjectPaths
+    config: EnvironmentConfig
 
     @property
     def _active_python(self) -> str:
@@ -78,19 +80,19 @@ class VenvCreator:
         requirements = [
             PACKAGE_URL,
         ]
-        if self.paths.requirements_file.is_file():
-            extra_reqs = self.paths.requirements_file.read_text().splitlines()
-            logger.info(
-                "Found %s requirements in requirements  file!",
-                len(extra_reqs)
-            )
-            requirements.extend(extra_reqs)
-        else:
-            logger.warning(
-                "Requirements file not found at '%s'. "
-                "Installing only base requirements.",
-                self.paths.requirements_file,
-            )
+        if self.config.requirements_file:
+            if self.config.requirements_file.is_file():
+                reqs = self.config.requirements_file.read_text().splitlines()
+                logger.info(
+                    "Found %s requirements in requirements  file!",
+                    len(reqs)
+                )
+                requirements.extend(reqs)
+            else:
+                raise FileNotFoundError(
+                    f"Requirements file not found at "
+                    f"'{self.config.requirements_file}'."
+                )
 
         logger.info(
             "Installing %s requirements...",

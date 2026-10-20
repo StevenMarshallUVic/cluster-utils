@@ -36,7 +36,6 @@ class ProjectPaths:
 
     ACCOUNT_TXT_NAME = ".account.txt"
     LOG_FILE_NAME = "last_run.log"
-    REQUIREMENTS_TXT_NAME = "requirements.txt"
     VENV_DIR_NAME = ".test_venv" # TODO: TEMP DEBUG
     # VENV_DIR_NAME = ".venv"
 
@@ -55,10 +54,6 @@ class ProjectPaths:
     @property
     def log_file(self):
         return self.project_dir / self.LOG_FILE_NAME
-
-    @property
-    def requirements_file(self):
-        return self.project_dir / self.REQUIREMENTS_TXT_NAME
 
     @property
     def src_dir(self):

@@ -3,6 +3,7 @@
 NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
 """
 
+from __future__ import annotations
 try:
     import tomllib
 except ModuleNotFoundError:
@@ -23,18 +24,19 @@ class EnvironmentConfig:
     @classmethod
     def from_dict(cls, d: dict[str, Any]):
         requirements_file: str = d.pop(
-            "requirements-file",
+            "python-requirements",
             "",
         )
         if not isinstance(requirements_file, str):
             raise TypeError(
-                f"'requirements-file' expected type str, "
+                f"'python-requirements' expected type str, "
                 f"got {type(requirements_file)}"
             )
 
         instance = cls(
             modules=tuple(d.pop("modules")),
-            requirements_file=Path(requirements_file),
+            requirements_file=Path(requirements_file) \
+                if requirements_file != "" else None,
         )
         if len(d) != 0:
             raise ValueError(f"Remaining values: {d}.")
@@ -49,12 +51,14 @@ class ClusterConfig:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]):
+        login = d.pop("login")
+        compute = d.pop("compute")
         instance = cls(
             login_environment=EnvironmentConfig.from_dict(
-                d.pop("login.environment")
+                login.pop("environment")
             ),
             compute_environment=EnvironmentConfig.from_dict(
-                d.pop("compute.environment")
+                compute.pop("environment")
             ),
         )
         if len(d) != 0:

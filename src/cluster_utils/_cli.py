@@ -198,7 +198,7 @@ def perform_run(args: Iterable[str] | None = None):
         LmodModuleLoader().load_modules(config.login_environment.modules)
 
     logger.info("Initializing run virtual environment...")
-    VenvCreator(paths).create_and_initialize_venv()
+    VenvCreator(paths, config.login_environment).create_and_initialize_venv()
 
     logger.info("Passing execution to virtual environment in background...")
 
