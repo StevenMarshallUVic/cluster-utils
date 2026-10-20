@@ -24,6 +24,8 @@ if ON_CLUSTER:
 
 logger = logging.getLogger(__name__)
 
+PROJECT_DIR_FLAG = "--project-dir"
+
 
 def init_project(args: Iterable[str] | None = None) -> None:
     """Command for initializing a project's file structure for use with
@@ -166,7 +168,7 @@ def perform_run(args: Iterable[str] | None = None):
         add_help=True,
     )
     parser.add_argument(
-        "-d", "--project-dir",
+        PROJECT_DIR_FLAG,
         help="(Optional) Root directory of project to initialize. "
              "When not provided, defaults to current working directory.",
         type=Path,
@@ -174,8 +176,6 @@ def perform_run(args: Iterable[str] | None = None):
         required=False,
     )
     args, _ = parser.parse_known_args(args)
-
-    # TODO: Create dataclass for storing runtime args?
     paths = ProjectPaths(args.project_dir)
     if not is_project_paths_initialized(paths):
         raise RuntimeError(
@@ -193,14 +193,17 @@ def perform_run(args: Iterable[str] | None = None):
 
     logger.info("Passing execution to virtual environment in background...")
 
-    # Run login script in background
-    sys.stdout.flush()
-    log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+    # Build command line arguments
     args = [
         "python", paths.cluster_runner_script,
         "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel())
     ] + sys.argv[1:]
+    if PROJECT_DIR_FLAG not in args:
+        args += [PROJECT_DIR_FLAG, paths.project_dir]
 
+    # Run login script in background
+    sys.stdout.flush()
+    log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
     subprocess.Popen(
         args,
         env=os.environ.copy(),
