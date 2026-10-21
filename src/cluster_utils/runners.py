@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Self
+from typing import Any
 
 from cluster_utils.data import ArrayJobData, Paths, SlurmParams
 from cluster_utils.utils import EnumAction, _RunnerStage, \
@@ -23,6 +23,7 @@ class LoginRunner(ArgParser, ABC):
     in the background on a login node."""
 
     paths: Paths
+    inputs: Input
 
     @staticmethod
     def parser_name() -> str:

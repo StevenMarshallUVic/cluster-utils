@@ -302,18 +302,27 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         return self.run_dir / "results"
     #endregion
 
-    def initialize_run(self) -> None:
+    def initialize_run(self, input_path: Path) -> None:
         """Perform run file structure initialization.
 
         Built-in run initialization includes:
             - Run directory creation
             - Attempt directory creation
+            - Input directory creation
+            - Output directory creation
+
+        Parameters
+        ----------
+        input_path
+            Path to input file/directory to initialize.
         """
 
         if not self.run_dir.is_dir():
             self._initialize_run_dir()
 
         self._initialize_attempt_dir()
+        self._initialize_input_dir(input_path)
+        self._initialize_output_dir()
 
         logger.info(
             f"Performing attempt {self.current_attempt_index} of run "
@@ -429,6 +438,43 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         self.run_attempts_dir.mkdir(parents=True, exist_ok=True)
         self.current_attempt_dir.mkdir(parents=True)
         self.logs_dir.mkdir(parents=True)
+
+    def _initialize_input_dir(self, input_path: Path) -> None:
+        """Create input directory and populate with input.
+
+        Parameters
+        ----------
+        input_path
+            Path to input file/directory to initialize.
+        """
+
+        logger.debug("Initializing input directory...")
+        if self.input_dir.is_dir():
+            return
+
+        self.input_dir.mkdir(parents=True)
+        logger.debug("Transferring inputs to input directory...")
+        self.transfer_input_to_run(input_path, self.input_dir)
+
+    @abstractmethod
+    def transfer_input_to_run(self, input_path: Path, input_dir: Path) -> None:
+        """Abstract method for handling the transfer of inputs to the run
+        input directory.
+
+        Parameters
+        ----------
+        input_path
+            Path to input to handle transfer for.
+        input_dir
+            Run input directory to transfer to.
+        """
+        raise NotImplementedError()
+
+    def _initialize_output_dir(self) -> None:
+        """Create output directory."""
+
+        logger.debug("Initializing output directory...")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     # TODO: Replace hacks with proper implementation
     @classmethod

@@ -4,7 +4,7 @@ Digital Research Alliance of Canada cluster.
 
 import argparse
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
@@ -52,8 +52,13 @@ class CustomPaths(Paths):
     def runner_module_path(self) -> str:
         raise NotImplementedError()
 
+    # [Required] Custom run file structure initialization
     def perform_custom_run_initialization(self, *args, **kwargs) -> None:
         raise NotImplementedError()
+
+    # [Required] Transfer input to run input directory
+    def transfer_input_to_run(self, input_path: Path, input_dir: Path) -> None:
+        pass
 
 
 @dataclass(frozen=True)
@@ -71,15 +76,19 @@ class CustomSlurmParams(SlurmParams):
 
 @dataclass(frozen=True)
 class CustomLoginRunner(LoginRunner):
+    inputs: CustomInput
+
     # [Required] Types to parse arguments for
     @staticmethod
     def argument_sources() -> list[type[ArgParseable]]:
         return [CustomInput, CustomPaths, CustomSlurmParams]
 
     def initialize(self) -> bool:
-        self.paths.initialize_run()
+        # Initialize paths
+        self.paths.initialize_run(self.inputs.input_path)
 
         # TODO: Replace with simpler system that includes paths by default
+        # Write JSONs
         self.paths.initialize_params_dirs(
             {
                 self.paths: self.paths.run_paths_json,
