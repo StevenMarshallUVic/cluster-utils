@@ -379,3 +379,57 @@ class ArgParseable(ABC):
 
         # noinspection argument-list
         return cls(**init_values)
+
+
+@dataclass(frozen=True)
+class ArgParser(ABC):
+    @staticmethod
+    @abstractmethod
+    def parser_name() -> str:
+        raise NotImplementedError()
+
+    @staticmethod
+    @abstractmethod
+    def parser_description() -> str:
+        raise NotImplementedError()
+
+    @staticmethod
+    @abstractmethod
+    def argument_sources() -> list[type[ArgParseable]]:
+        """Abstract property for specifying additional argument sources."""
+        return []
+
+    @classmethod
+    @abstractmethod
+    def from_custom_args(cls, args: argparse.Namespace) -> Self:
+        raise NotImplementedError()
+
+    @classmethod
+    def from_args(cls) -> Self:
+        """Create instance from command line arguments."""
+
+        parser = argparse.ArgumentParser(
+            prog=cls.parser_name(),
+            description=cls.parser_description(),
+            epilog="See README.md for more information.",
+            conflict_handler="resolve",
+            # add_help=False,
+        )
+        # TODO: Test if help still works
+        # parser.add_argument(
+        #     "-h", "--help",
+        #     action="store_true",
+        #     help="show this help message and exit"
+        # )
+        for argument_source in cls.argument_sources():
+            argument_source.add_arguments(parser)
+
+        args, _ = parser.parse_known_args()
+        # if args.help:
+        #     log_args_help(
+        #         parser,
+        #         cls.argument_sources(),
+        #     )
+        #     exit(0)
+
+        return cls.from_custom_args(args)

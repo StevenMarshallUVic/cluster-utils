@@ -12,24 +12,26 @@ from typing import Any, Self
 
 from cluster_utils.data import ArrayJobData, Paths, SlurmParams
 from cluster_utils.utils import EnumAction, _RunnerStage, \
-    run_subprocess_command, log_args_help, ArgParseable
+    run_subprocess_command, ArgParser
 
 logger = logging.getLogger(Path(__file__).name)
 
 
 @dataclass(frozen=True)
-class LoginRunner(ABC):
+class LoginRunner(ArgParser, ABC):
     """Abstract class that handles running the portion of a run that occurs
     in the background on a login node."""
 
-    # TODO: Figure out best way to handle this variable
     paths: Paths
 
     @staticmethod
-    @abstractmethod
-    def additional_cmd_line_arguments() -> list[type[ArgParseable]]:
-        """Abstract property for specifying additional argument sources."""
-        return []
+    def parser_name() -> str:
+        return "Login Runner"
+
+    @staticmethod
+    def parser_description() -> str:
+        return ("Perform logic on login node of "
+                "Digital Research Alliance of Canada cluster.")
 
     def run(self) -> bool:
         """Perform login portion of run.
@@ -149,49 +151,23 @@ class LoginRunner(ABC):
         """
         return True
 
-    @classmethod
-    @abstractmethod
-    def from_custom_args(cls, args: argparse.Namespace) -> Self:
-        raise NotImplementedError()
-
-    @classmethod
-    def from_args(cls) -> Self:
-        """Create instance from command line arguments."""
-
-        parser = argparse.ArgumentParser(
-            prog="Login Runner",
-            description="Perform logic on login node of Digital Research Alliance of Canada cluster.",
-            epilog="See README.md for more information.",
-            conflict_handler="resolve",
-            add_help=False,
-        )
-        parser.add_argument(
-            "-h", "--help",
-            action="store_true",
-            help="show this help message and exit"
-        )
-        args, _ = parser.parse_known_args()
-        if args.help:
-            log_args_help(
-                parser,
-                cls.additional_cmd_line_arguments(),
-            )
-            exit(0)
-
-        for argument_source in cls.additional_cmd_line_arguments():
-            argument_source.add_arguments(parser)
-
-        args, _ = parser.parse_known_args()
-        return cls.from_custom_args(args)
-
 
 @dataclass(frozen=True)
-class ComputeRunner(ABC):
+class ComputeRunner(ArgParser, ABC):
     """Abstract class that handles running the portion of a run that occurs
     on a cluster's compute node."""
 
     compute_dir: Path
     job_data: ArrayJobData
+
+    @staticmethod
+    def parser_name() -> str:
+        return "Compute Runner"
+
+    @staticmethod
+    def parser_description() -> str:
+        return ("Perform logic on compute node of "
+                "Digital Research Alliance of Canada cluster.")
 
     @property
     def compute_input_dir(self) -> Path:
@@ -278,33 +254,6 @@ class ComputeRunner(ABC):
                 logger.info(f"Performing {log_name} on {input_file.stem} "
                             f"({input_index}/{len(input_files)})...")
             func(input_file)
-
-    @classmethod
-    def from_args(cls) -> Self:
-        """Create instance from command line arguments."""
-
-        parser = argparse.ArgumentParser(
-            prog="Cluster Runner",
-            description="Perform logic on compute node of Digital Research Alliance of Canada cluster.",
-            epilog="See README.md for more information.",
-            conflict_handler="resolve",
-        )
-        ArrayJobInstanceParams.add_arguments(parser)
-        args, _ = parser.parse_known_args()
-
-        array_job_params = ArrayJobInstanceParams.from_args(args)
-        paths = Paths.from_json(array_job_params.paths_json)
-        job_data = ArrayJobData.from_json(
-            ArrayJobData.build_json_path(
-                paths.attempt_array_job_data_dir,
-                array_job_params.array_job_index,
-            )
-        )
-
-        return cls(
-            compute_dir=array_job_params.compute_dir,
-            job_data=job_data,
-        )
 
 
 @dataclass(frozen=True)
