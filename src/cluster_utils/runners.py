@@ -80,24 +80,16 @@ class LoginRunner(ArgParser, ABC):
             array_job_data_dir: Path,
             log_file: Path,
             extra_job_wrap_args: list[str] | None = None,
-            wait=True,
+            dependencies: SlurmDependencies | None = None,
+            wait: bool = True,
     ) -> bool:
         """Submit a slurm array job to handle the compute portion of the job."""
+        # TODO: Find way to remove params that are just passed to `build_array_job_command`.
 
-        max_array_index: int | None = ArrayJobData.find_greatest_array_job_index(
-            array_job_data_dir,
-        )
-        if max_array_index is None:
-            logger.info(
-                f"No jobs to run for {job_name}, "
-                f"skipping array job submission!"
-            )
-            return True
-
-        # TODO: Create class for storing data and building slurm command
         wrap_args = [
             subprocess.list2cmdline([arg]) for arg in [
-                self.paths.cluster_compute_shell_script,
+                # TODO: Confirm this works
+                f"cd {self.paths.project_dir} && cluster-run",
                 "--paths-json",  self.paths.attempt_paths_json,
                 "--project-dir",  self.paths.project_dir,
                 "--python-module-path", self.paths.runner_module_path,
@@ -106,22 +98,20 @@ class LoginRunner(ArgParser, ABC):
             + (["--debug"] if logger.isEnabledFor(logging.DEBUG) else [])
         ]
 
-        args = [
-            "sbatch",
-            f"--job-name={job_name}",
-            f"--account={slurm_params.read_account_from_file(
-                self.paths.account_file
-            )}",
-            f"--cpus-per-task={slurm_params.cpus_per_task}",
-            f"--mem={slurm_params.memory}",
-            f"--time={slurm_params.time}",
-            f"--array=0-{max_array_index}",
-            f"--output={log_file}",
-            f"--error={log_file}",
-            f"--wrap={' '.join(wrap_args)}",
-        ]
-        if wait:
-            args.append("--wait")
+        args = slurm_params.build_array_job_command(
+            job_name,
+            array_job_data_dir,
+            log_file,
+            wrap_args,
+            dependencies,
+            wait,
+        )
+        if args is None:
+            logger.info(
+                f"No jobs to run for {job_name}, "
+                f"skipping array job submission!"
+            )
+            return True
 
         logger.info(f"Waiting for {job_name} slurm array job to complete...")
         success = run_subprocess_command(args, logger=logger)
@@ -134,7 +124,6 @@ class LoginRunner(ArgParser, ABC):
             logger.info(f"{job_name} slurm jobs completed!")
         else:
             logger.warning(f"One or more {job_name} slurm jobs failed.")
-
         return success
 
     def submit_single_job(self) -> None:

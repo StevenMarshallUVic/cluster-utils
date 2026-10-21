@@ -12,6 +12,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Any
 
+# TODO: Create helper method for generating prefix flags
 
 class _RunnerStage(StrEnum):
     """Stages of cluster program."""
@@ -78,40 +79,6 @@ def run_subprocess_command(
 
             return False
     return True
-
-
-def log_args_help(
-        template_parser: argparse.ArgumentParser,
-        arg_parseables: list[type[ArgParseable]],
-) -> None:
-    """Write argparse help.
-
-    Parameters
-    ----------
-    template_parser
-        Parser to copy help description for.
-    arg_parseables
-        Arguments to add to help log message.
-    """
-
-    help_parser = argparse.ArgumentParser(
-        prog=template_parser.prog,
-        usage=template_parser.usage,
-        description=template_parser.description,
-        epilog=template_parser.epilog,
-        formatter_class=template_parser.formatter_class,
-        prefix_chars=template_parser.prefix_chars,
-        fromfile_prefix_chars=template_parser.fromfile_prefix_chars,
-        argument_default=template_parser.argument_default,
-        conflict_handler=template_parser.conflict_handler,
-        allow_abbrev=template_parser.allow_abbrev,
-        exit_on_error=template_parser.exit_on_error,
-        add_help=True,
-    )
-    for arg_parseable in arg_parseables:
-        arg_parseable.add_arguments(help_parser)
-
-    help_parser.parse_args()
 
 
 class ClusterJsonEncoder(json.JSONEncoder, ABC):
@@ -413,23 +380,9 @@ class ArgParser(ABC):
             description=cls.parser_description(),
             epilog="See README.md for more information.",
             conflict_handler="resolve",
-            # add_help=False,
         )
-        # TODO: Test if help still works
-        # parser.add_argument(
-        #     "-h", "--help",
-        #     action="store_true",
-        #     help="show this help message and exit"
-        # )
         for argument_source in cls.argument_sources():
             argument_source.add_arguments(parser)
 
         args, _ = parser.parse_known_args()
-        # if args.help:
-        #     log_args_help(
-        #         parser,
-        #         cls.argument_sources(),
-        #     )
-        #     exit(0)
-
         return cls.from_custom_args(args)

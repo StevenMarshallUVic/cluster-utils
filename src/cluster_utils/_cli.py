@@ -185,9 +185,11 @@ def perform_run(args: Iterable[str] | None = None):
 
     config = ClusterConfig.from_toml(paths.cluster_config_toml)
 
+    # TODO: Add branch for loading compute module if on compute node
     if ON_CLUSTER:
         LmodModuleLoader().load_modules(config.login_environment.modules)
 
+    # TODO: Add branch for creating venv on compute node if on compute node
     logger.info("Initializing run virtual environment...")
     VenvCreator(paths, config.login_environment).create_and_initialize_venv()
 

@@ -29,7 +29,7 @@ class CustomInput(Input):
     ) -> None:
         if group is None:
             group = parser.add_argument_group(
-                "Custom Input Parameters",
+                "Input Parameters",
                 ""
             )
 

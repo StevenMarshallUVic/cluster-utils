@@ -15,8 +15,113 @@ from cluster_utils.utils import ArgParseable, JsonSerializable
 
 logger = logging.getLogger(Path(__file__).name)
 
-# TODO: Add enum for slurm dependency types
-# TODO: Create helper method for generating prefix flags
+
+class SlurmDependencyType(StrEnum):
+    AFTER = "after"
+    """After the specified jobs start or are cancelled 
+    and 'time' in minutes from job start or cancellation happens, 
+    this job can begin execution. If no 'time' is given 
+    then there is no delay after start or cancellation."""
+    AFTER_ANY = "afterany"
+    """This job can begin execution after the specified jobs have terminated. 
+    This is the default dependency type."""
+    AFTER_BURST_BUFFER = "afterburstbuffer"
+    """This job can begin execution after the specified jobs have terminated 
+    and any associated burst buffer stage out operations have completed."""
+    AFTER_CORR = "aftercorr"
+    """A task of this job array can begin execution 
+    after the corresponding task ID in the specified job 
+    has completed successfully (ran to completion with an exit code of zero). 
+    If the specified job is not an array, this is treated the same as afterok.
+    """
+    AFTER_NOT_OK = "afternotok"
+    """This job can begin execution after the specified jobs 
+    have terminated in some failed state 
+    (non-zero exit code, node failure, timed out, etc). 
+    This job must be submitted while the specified job is still active 
+    or within MinJobAge seconds after the specified job has ended. 
+    If the dependent job ID is not found and is on the same cluster 
+    as the job submission, the job is rejected. If the dependent job ID 
+    is not found and is on a different cluster from the job submission, 
+    the dependency is marked as failed."""
+    AFTER_OK = "afterok"
+    """This job can begin execution after the specified jobs have 
+    successfully executed (ran to completion with an exit code of zero). 
+    This job must be submitted while the specified job is still active 
+    or within MinJobAge seconds after the specified job has ended. 
+    If the dependent job ID is not found and is on the same cluster 
+    as the job submission, the job is rejected. If the dependent job ID 
+    is not found and is on a different cluster from the job submission, 
+    the dependency is marked as failed."""
+    SINGLETON = "singleton"
+    """This job can begin execution after any previously launched jobs 
+    sharing the same job name and user have terminated. 
+    In other words, only one job by that name and owned by that user 
+    can be running or suspended at any point in time."""
+
+
+@dataclass(frozen=True)
+class SlurmDependency:
+    """Dependency for a Slurm job.
+
+    Attributes
+    ----------
+    dependency_type
+        What type of dependency to require.
+        See `SlurmDependencyType` for explanations of types.
+    job_ids
+        Which job IDs this dependency applies to.
+    """
+
+    dependency_type: SlurmDependencyType
+    job_ids: tuple[int, ...] | None
+
+    def __post_init__(self):
+        if (self.dependency_type == SlurmDependencyType.SINGLETON
+                and self.job_ids is not None):
+            raise ValueError(
+                "`job_ids` not supported for singleton slurm dependency."
+            )
+        if (self.dependency_type != SlurmDependencyType.SINGLETON
+                and self.job_ids is None):
+            raise ValueError(
+                "`job_ids` required for non-singleton slurm dependency."
+            )
+
+    def as_flag_value(self) -> str:
+        if self.dependency_type == SlurmDependencyType.SINGLETON:
+            return self.dependency_type
+
+        if self.job_ids is None:
+            raise ValueError(
+                "`job_ids` required for non-singleton slurm dependency."
+            )
+        return (
+            f"{self.dependency_type}:{':'.join([str(j) for j in self.job_ids])}"
+        )
+
+
+@dataclass(frozen=True)
+class SlurmDependencies:
+    """Dependencies for a Slurm job.
+
+    Attributes
+    ----------
+    dependencies
+        Dependencies.
+    require_all_dependencies
+        When true, all dependencies must be satisfied.
+        Otherwise, any dependency may be satisfied.
+    """
+
+    dependencies: tuple[SlurmDependency, ...]
+    require_all_dependencies: bool = True
+
+    def as_flag_value(self) -> str:
+        """Create slurm dependency flag."""
+        sep = "," if self.require_all_dependencies else "?"
+        return sep.join([d.as_flag_value() for d in self.dependencies])
+
 
 @dataclass(frozen=True)
 class Input(ArgParseable, JsonSerializable):
@@ -68,7 +173,6 @@ class SlurmParams(ArgParseable, JsonSerializable):
         Amount of time to allocate for each slurm job.
     """
 
-    # TODO: Add support for GPUs
     DEFAULT_CPUS_PER_TASK = 1
 
     account: str
@@ -76,8 +180,49 @@ class SlurmParams(ArgParseable, JsonSerializable):
     memory: str
     time: str
     cpus_per_task: int = DEFAULT_CPUS_PER_TASK
+    gpus: str | None = None
 
-    # TODO: Replace with parameter in `from_args` method
+    def build_array_job_command(
+            self,
+            job_name: str,
+            array_job_data_dir: Path,
+            log_file: Path,
+            wrap_args: list[str],
+            dependencies: SlurmDependencies | None = None,
+            wait=True,
+    ) -> list[str] | None:
+        """Submit a slurm array job to handle the compute portion of the job."""
+        # TODO: Add docstring (also copy to runner method)
+
+        max_array_index = ArrayJobData.find_greatest_array_job_index(
+            array_job_data_dir,
+        )
+        if max_array_index is None:
+            return None
+
+        args = [
+            "sbatch",
+            f"--job-name={job_name}",
+            f"--account={self.account}",
+            f"--cpus-per-task={self.cpus_per_task}",
+            f"--mem={self.memory}",
+            f"--time={self.time}",
+            f"--array=0-{max_array_index}",
+            f"--output={log_file}",
+            f"--error={log_file}",
+            f"--wrap={' '.join(wrap_args)}",
+        ]
+        if self.gpus is not None:
+            args.append(f"--gpus={self.gpus}")
+        if dependencies:
+            # TODO: Test that this works
+            args.append(f"--dependency={dependencies.as_flag_value()}")
+        if wait:
+            args.append("--wait")
+
+        return args
+
+    # TODO: Currently discards cmd line value, find out better way to handle
     @staticmethod
     def read_account_from_file(account_file: Path) -> str | None:
         """Parse an account from a plain-text file containing the account.
@@ -733,14 +878,6 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             "Parameters used for initializing run."
         )
         target.add_argument(
-            "--scratch-dir" if not prefix \
-                else f"--{prefix}-scratch-dir",
-            dest="scratch_dir",
-            help="Path to scratch directory on cluster.",
-            type=Path,
-            default=os.getenv("SCRATCH"),
-        )
-        target.add_argument(
             *(
                 ["-r", "--run-dir"] if not prefix else [f"--{prefix}-run-dir"]
             ),
@@ -765,6 +902,15 @@ class Paths(ArgParseable, JsonSerializable, ABC):
                  "When not supplied, infers name from input. "
                  "Ignored when '--run-dir' is supplied.",
             type=str,
+        )
+        target.add_argument(
+            "--scratch-dir" if not prefix \
+                else f"--{prefix}-scratch-dir",
+            dest="scratch_dir",
+            help="(Optional) Path to scratch directory on cluster. "
+                 "When not supplied, retrieved from environment.",
+            type=Path,
+            default=os.getenv("SCRATCH"),
         )
 
 
