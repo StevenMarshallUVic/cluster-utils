@@ -77,6 +77,7 @@ class CustomSlurmParams(SlurmParams):
 @dataclass(frozen=True)
 class CustomLoginRunner(LoginRunner):
     inputs: CustomInput
+    paths: CustomPaths
 
     # [Required] Types to parse arguments for
     @staticmethod
@@ -113,7 +114,10 @@ class CustomLoginRunner(LoginRunner):
     # [Required] Create instance from command line arguments
     @classmethod
     def from_custom_args(cls, args: argparse.Namespace):
-        raise NotImplementedError()
+        return cls(
+            inputs=CustomInput.from_args(args),
+            paths=CustomPaths.from_args(args),
+        )
 
 
 @dataclass(frozen=True)
