@@ -52,7 +52,7 @@ class CustomPaths(Paths):
     def runner_module_path(self) -> str:
         raise NotImplementedError()
 
-    def initialize_run_full(self, *args, **kwargs) -> None:
+    def perform_custom_run_initialization(self, *args, **kwargs) -> None:
         raise NotImplementedError()
 
 
@@ -76,9 +76,22 @@ class CustomLoginRunner(LoginRunner):
     def argument_sources() -> list[type[ArgParseable]]:
         return [CustomInput, CustomPaths, CustomSlurmParams]
 
-    # (Optional) Initialize run
     def initialize(self) -> bool:
-        raise NotImplementedError()
+        self.paths.initialize_run()
+
+        # TODO: Replace with simpler system that includes paths by default
+        self.paths.initialize_params_dirs(
+            {
+                self.paths: self.paths.run_paths_json,
+            },
+            {
+                self.paths: self.paths.attempt_paths_json,
+            },
+        )
+
+        # (Optional) Add custom run initialization logic here...
+
+        return True
 
     # [Required] Submit compute job
     def submit_compute_jobs(self) -> bool:
@@ -139,6 +152,7 @@ class CustomClusterRunners(ClusterRunners):
 
 
 def main():
+    # TODO: Move all runtime logic to private runner script and only use this file to access classes
     # TODO: Extract log level parsing to other script
     parser = argparse.ArgumentParser(description="Logger Management")
     parser.add_argument(

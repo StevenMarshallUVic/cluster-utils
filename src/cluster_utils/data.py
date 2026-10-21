@@ -302,8 +302,13 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         return self.run_dir / "results"
     #endregion
 
-    def initialize_run_minimal(self) -> None:
-        """Perform minimal run file structure initialization."""
+    def initialize_run(self) -> None:
+        """Perform run file structure initialization.
+
+        Built-in run initialization includes:
+            - Run directory creation
+            - Attempt directory creation
+        """
 
         if not self.run_dir.is_dir():
             self._initialize_run_dir()
@@ -314,9 +319,10 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             f"Performing attempt {self.current_attempt_index} of run "
             f"found at '{self.run_dir}'."
         )
+        self.perform_custom_run_initialization()
 
     @abstractmethod
-    def initialize_run_full(self, *args, **kwargs) -> None:
+    def perform_custom_run_initialization(self, *args, **kwargs) -> None:
         """Perform full run file structure initialization."""
         pass
 
