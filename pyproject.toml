@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cam_cluster_utils"
-version = "1.0.0b35"
+version = "1.0.0b36"
 authors = [
   { name="Steven Marshall", email="stevenmarshall@uvic.ca" },
 ]

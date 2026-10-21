@@ -43,7 +43,7 @@ def init_project(args: Iterable[str] | None = None) -> None:
         prog="Cluster Project Initialization",
         description="Handles initializing project for use with cluster-utils "
                     "framework.",
-        add_help=True,
+        add_help=False,
     )
     parser.add_argument(
         "-a", "--account",

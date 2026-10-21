@@ -146,7 +146,6 @@ class CustomComputeRunner(ComputeRunner):
                 array_job_params.array_job_index,
             )
         )
-
         return cls(
             compute_dir=array_job_params.compute_dir,
             job_data=job_data,

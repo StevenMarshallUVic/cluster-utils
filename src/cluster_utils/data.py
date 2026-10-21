@@ -331,7 +331,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         self.perform_custom_run_initialization()
 
     @abstractmethod
-    def perform_custom_run_initialization(self, *args, **kwargs) -> None:
+    def perform_custom_run_initialization(self) -> None:
         """Perform full run file structure initialization."""
         pass
 
