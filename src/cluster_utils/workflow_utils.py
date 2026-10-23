@@ -11,10 +11,10 @@ from typing import Self
 from cluster_utils.utils import ArgParseable
 
 
-def find_subclasses_in_script[T](
+def find_subclasses_in_script(
         path: Path,
-        target_class: type[T]
-) -> list[T]:
+        target_class,
+) -> list:
     """Dynamically load a Python file and find classes that inherit from
     a target class.
 

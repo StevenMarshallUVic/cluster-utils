@@ -347,7 +347,7 @@ def _find_workflow_entrypoint(workflow_script: Path) -> type[FullWorkflow]:
         )
     subclasses: list[type[FullWorkflow]] = find_subclasses_in_script(
         workflow_script,
-        type(target_type)
+        target_type,
     )
     if len(subclasses) != 1:
         raise RuntimeError(
