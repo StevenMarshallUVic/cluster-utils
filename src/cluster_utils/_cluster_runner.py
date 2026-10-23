@@ -13,7 +13,8 @@ from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths
 from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams
 from cluster_utils.utils import EnumAction, _RunnerStage, \
-    run_subprocess_command, ArgParser, find_subclasses_in_script
+    run_subprocess_command
+from cluster_utils.workflow_utils import find_subclasses_in_script, ArgParser
 from cluster_utils.workflow import FullWorkflow
 
 # TODO: Move logger creation to centralized location
@@ -344,7 +345,7 @@ def _find_workflow_entrypoint(workflow_script: Path) -> type[FullWorkflow]:
             f"Update config TOML `{toml_field_name}` to point to "
             f"your workflow script."
         )
-    subclasses: list[type[FullWorkflow]] = find_subclasses_in_script[FullWorkflow](
+    subclasses: list[type[FullWorkflow]] = find_subclasses_in_script(
         workflow_script,
         type(target_type)
     )
