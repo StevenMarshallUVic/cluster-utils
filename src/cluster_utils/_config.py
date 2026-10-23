@@ -18,12 +18,12 @@ from typing import Any
 
 @dataclass(frozen=True)
 class GlobalConfig:
-    workflow_module_path: Path
+    workflow_script_rel_path: Path
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]):
         instance = cls(
-            workflow_module_path=Path(d.pop("workflow-module-path")),
+            workflow_script_rel_path=Path(d.pop("workflow-script")),
         )
         if len(d) != 0:
             raise ValueError(f"Remaining values: {d}.")

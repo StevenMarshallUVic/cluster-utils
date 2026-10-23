@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from cluster_utils import get_environment_default_log_level
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths
 from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams
@@ -334,7 +335,8 @@ class _ClusterRunners:
 
 
 def _find_workflow_entrypoint(workflow_script: Path) -> type[FullWorkflow]:
-    toml_field_name = "workflow-module-path"
+    # TODO: Replace hardcoded debug field name
+    toml_field_name = "workflow-script"
     target_type: type = FullWorkflow
     if not workflow_script.is_file():
         raise FileNotFoundError(
@@ -376,7 +378,7 @@ def main():
     config = ClusterConfig.from_toml(paths.cluster_config_toml)
 
     workflow_entrypoint = _find_workflow_entrypoint(
-        config.global_config.workflow_module_path
+        (paths.project_dir / config.global_config.workflow_script_rel_path).resolve()
     )
     print(workflow_entrypoint)
     # TODO: Call runners using entrypoint

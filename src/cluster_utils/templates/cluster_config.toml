@@ -1,7 +1,8 @@
 # Configuration for the environment that runs will be launched in.
 
 [global]
-workflow-module-path = "src.workflow"
+# Relative path from project root directory to workflow script.
+workflow-script = "./src/cluster_workflow.py"
 
 [login]
 [login.environment]

@@ -18,16 +18,18 @@ from cluster_utils import SRC_ROOT_DIR
 
 CLUSTER_CONFIG_TOML_NAME = "cluster_config.toml"
 CLUSTER_RUNNER_SCRIPT_NAME = "cluster_runner.py"
+CLUSTER_WORKFLOW_SCRIPT_NAME = "cluster_workflow.py"
 
 
 class SrcPaths:
     SCRIPTS_DIR = SRC_ROOT_DIR / "scripts"
     TEMPLATES_DIR = SRC_ROOT_DIR / "templates"
 
-    RUNNER_SCRIPT = SRC_ROOT_DIR / "_runner.py"
+    RUNNER_SCRIPT = SRC_ROOT_DIR / "_cluster_runner.py"
 
     CLUSTER_CONFIG_TOML = TEMPLATES_DIR / CLUSTER_CONFIG_TOML_NAME
     CLUSTER_RUNNER_SCRIPT = TEMPLATES_DIR / CLUSTER_RUNNER_SCRIPT_NAME
+    CLUSTER_WORKFLOW_SCRIPT = TEMPLATES_DIR / CLUSTER_WORKFLOW_SCRIPT_NAME
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,7 @@ class ProjectPaths:
         return {
             SrcPaths.CLUSTER_CONFIG_TOML: self.cluster_config_toml,
             SrcPaths.CLUSTER_RUNNER_SCRIPT: self.cluster_runner_script,
+            SrcPaths.CLUSTER_WORKFLOW_SCRIPT: self.cluster_workflow_script
         }
 
     @property
@@ -66,6 +69,11 @@ class ProjectPaths:
     def cluster_runner_script(self):
         """Python script where project logic can be executed."""
         return self.src_dir / CLUSTER_RUNNER_SCRIPT_NAME
+
+    @property
+    def cluster_workflow_script(self):
+        """Python script where project workflow can be designed."""
+        return self.src_dir / CLUSTER_WORKFLOW_SCRIPT_NAME
 
     @property
     def log_file(self):

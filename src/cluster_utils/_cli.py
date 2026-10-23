@@ -15,7 +15,7 @@ from pathlib import Path
 
 from cluster_utils import PACKAGE_NAME, get_project_dir
 from cluster_utils._config import ClusterConfig
-from cluster_utils._paths import ProjectPaths
+from cluster_utils._paths import ProjectPaths, SrcPaths
 from cluster_utils._utils import ON_CLUSTER
 from cluster_utils._utils.venv import VenvCreator
 from cluster_utils._utils import io, project_init
@@ -90,8 +90,7 @@ def perform_run(args: Iterable[str] | None = None):
     logger.info("Passing execution to virtual environment in background...")
     # Build command line arguments
     args = [
-        # TODO: Replace hard-coded path
-        "python", "src/cluster_utils/_cluster_runner.py",
+        "python", SrcPaths.RUNNER_SCRIPT,
         "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel()),
         "--project-dir", paths.project_dir,
     ] + sys.argv[1:]
