@@ -113,10 +113,10 @@ class ComputeWorkflow(ABC):
 class FullWorkflow(ABC):
     @property
     @abstractmethod
-    def login_workflow(self) -> LoginWorkflow:
+    def login_workflow(self) -> type[LoginWorkflow]:
         pass
 
     @property
     @abstractmethod
-    def compute_workflow(self) -> ComputeWorkflow:
+    def compute_workflow(self) -> type[ComputeWorkflow]:
         pass

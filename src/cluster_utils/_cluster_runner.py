@@ -335,7 +335,7 @@ class _ClusterRunners:
         return cls(_stage=args.runner_stage)
 
 
-def _find_workflow_entrypoint(workflow_script: Path) -> type[FullWorkflow]:
+def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
     # TODO: Replace hardcoded debug field name
     toml_field_name = "workflow-script"
     target_type: type = FullWorkflow
@@ -378,10 +378,9 @@ def main():
     paths = ProjectPaths(args.project_dir)
     config = ClusterConfig.from_toml(paths.cluster_config_toml)
 
-    workflow_entrypoint = _find_workflow_entrypoint(
+    workflow_class = _find_user_workflow_class(
         (paths.project_dir / config.global_config.workflow_script_rel_path).resolve()
     )
-    print(workflow_entrypoint)
     # TODO: Call runners using entrypoint
     # _ClusterRunners.from_args().run_stage()
 

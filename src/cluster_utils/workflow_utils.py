@@ -31,7 +31,6 @@ def find_subclasses_in_script(
         All classes in file that inherit from the target class.
     """
 
-    print("target:", target_class)
     module_name = path.stem
 
     # Create a module specification from the file path
@@ -51,18 +50,6 @@ def find_subclasses_in_script(
     # Inspect the module's contents
     subclasses = []
     for name, obj in inspect.getmembers(module, inspect.isclass):
-        print(name, obj) # TODO: Temp debug
-        if not issubclass(obj, target_class):
-            print(obj, "is not target subclass.")
-            continue
-        if obj is target_class:
-            print(obj, "is exactly target class")
-            continue
-        if obj.__module__ != module_name:
-            print(obj, "is not the target module.")
-            continue
-
-        print(name, obj, "passed all checks!")
         # Ensure it inherits from target, is not the target itself,
         # and was actually defined IN this file (ignores outside imports)
         if (
