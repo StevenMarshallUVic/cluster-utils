@@ -1,5 +1,8 @@
 # Configuration for the environment that runs will be launched in.
 
+[global]
+workflow-module-path = "src.workflow"
+
 [login]
 [login.environment]
 # Which modules to load for login stage. Order determines module load order.

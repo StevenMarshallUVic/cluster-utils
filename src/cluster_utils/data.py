@@ -7,6 +7,7 @@ import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+from enum import auto, StrEnum
 from math import ceil
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,13 @@ from typing import Any
 from cluster_utils.utils import ArgParseable, JsonSerializable
 
 logger = logging.getLogger(Path(__file__).name)
+
+
+class SlurmJobType(StrEnum):
+    SINGLE = auto()
+    """Run the job as a single job."""
+    ARRAY = auto()
+    """Run the job as an array job."""
 
 
 class SlurmDependencyType(StrEnum):
@@ -161,8 +169,6 @@ class SlurmParams(ArgParseable, JsonSerializable):
 
     Attributes
     ----------
-    account
-        Digital Research Alliance of Canada account to charge usage to.
     batch_size
         How many inputs to batch into each slurm job.
     cpus_per_task
@@ -175,73 +181,33 @@ class SlurmParams(ArgParseable, JsonSerializable):
 
     DEFAULT_CPUS_PER_TASK = 1
 
-    account: str
     batch_size: int
     memory: str
     time: str
     cpus_per_task: int = DEFAULT_CPUS_PER_TASK
     gpus: str | None = None
 
-    def build_array_job_command(
-            self,
-            job_name: str,
-            array_job_data_dir: Path,
-            log_file: Path,
-            wrap_args: list[str],
-            dependencies: SlurmDependencies | None = None,
-            wait=True,
-    ) -> list[str] | None:
-        """Submit a slurm array job to handle the compute portion of the job."""
-        # TODO: Add docstring (also copy to runner method)
-
-        max_array_index = ArrayJobData.find_greatest_array_job_index(
-            array_job_data_dir,
-        )
-        if max_array_index is None:
-            return None
-
-        args = [
-            "sbatch",
-            f"--job-name={job_name}",
-            f"--account={self.account}",
-            f"--cpus-per-task={self.cpus_per_task}",
-            f"--mem={self.memory}",
-            f"--time={self.time}",
-            f"--array=0-{max_array_index}",
-            f"--output={log_file}",
-            f"--error={log_file}",
-            f"--wrap={' '.join(wrap_args)}",
-        ]
-        if self.gpus is not None:
-            args.append(f"--gpus={self.gpus}")
-        if dependencies:
-            # TODO: Test that this works
-            args.append(f"--dependency={dependencies.as_flag_value()}")
-        if wait:
-            args.append("--wait")
-
-        return args
-
     # TODO: Currently discards cmd line value, find out better way to handle
-    @staticmethod
-    def read_account_from_file(account_file: Path) -> str | None:
-        """Parse an account from a plain-text file containing the account.
-
-        Parameters
-        ----------
-        account_file
-            Path to a plain-text file containing an account.
-
-        Returns
-        -------
-        str | None
-            The account if the file exists, or None if not.
-        """
-        if not account_file.is_file():
-            return None
-
-        account = open(account_file).read().strip()
-        return account
+    # TODO: Move to class that exposes --account argument
+    # @staticmethod
+    # def read_account_from_file(account_file: Path) -> str | None:
+    #     """Parse an account from a plain-text file containing the account.
+    #
+    #     Parameters
+    #     ----------
+    #     account_file
+    #         Path to a plain-text file containing an account.
+    #
+    #     Returns
+    #     -------
+    #     str | None
+    #         The account if the file exists, or None if not.
+    #     """
+    #     if not account_file.is_file():
+    #         return None
+    #
+    #     account = open(account_file).read().strip()
+    #     return account
 
     @classmethod
     def add_arguments(
@@ -249,19 +215,21 @@ class SlurmParams(ArgParseable, JsonSerializable):
             parser: argparse.ArgumentParser,
             group: argparse._ArgumentGroup | None = None,
     ) -> None:
+        # TODO: Figure out how to use SlurmJob arg_prefix instead of this
         prefix = cls.argument_prefix()
         target = group if group is not None else parser.add_argument_group(
             "Slurm Parameters",
             "Parameters used for Slurm job submission."
         )
-        target.add_argument(
-            "--account",
-            dest="account",
-            help=f"(Optional) Digital Research Alliance of Canada account to "
-                 f"charge usage to. "
-                 f"When not supplied, attempts to find value in account file.",
-            type=str,
-        )
+        # TODO: Move to other argument parser
+        # target.add_argument(
+        #     "--account",
+        #     dest="account",
+        #     help=f"(Optional) Digital Research Alliance of Canada account to "
+        #          f"charge usage to. "
+        #          f"When not supplied, attempts to find value in account file.",
+        #     type=str,
+        # )
         target.add_argument(
             "--batch-size" if not prefix else f"--{prefix}-batch-size",
             "--batch" if not prefix else f"--{prefix}-batch",

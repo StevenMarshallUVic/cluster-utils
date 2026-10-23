@@ -17,8 +17,23 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class GlobalConfig:
+    workflow_module_path: Path
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]):
+        instance = cls(
+            workflow_module_path=Path(d.pop("workflow-module-path")),
+        )
+        if len(d) != 0:
+            raise ValueError(f"Remaining values: {d}.")
+
+        return instance
+
+
+@dataclass(frozen=True)
 class EnvironmentConfig:
-    modules: tuple[str]
+    modules: tuple[str, ...]
     requirements_file: Path | None = None
 
     @classmethod
@@ -46,19 +61,22 @@ class EnvironmentConfig:
 
 @dataclass(frozen=True)
 class ClusterConfig:
+    global_config: GlobalConfig
     login_environment: EnvironmentConfig
     compute_environment: EnvironmentConfig
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]):
-        login = d.pop("login")
-        compute = d.pop("compute")
+        global_table = d.pop("global")
+        login_table = d.pop("login")
+        compute_table = d.pop("compute")
         instance = cls(
+            global_config=GlobalConfig.from_dict(global_table),
             login_environment=EnvironmentConfig.from_dict(
-                login.pop("environment")
+                login_table.pop("environment")
             ),
             compute_environment=EnvironmentConfig.from_dict(
-                compute.pop("environment")
+                compute_table.pop("environment")
             ),
         )
         if len(d) != 0:

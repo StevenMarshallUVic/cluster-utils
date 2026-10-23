@@ -17,9 +17,8 @@ class TestInitProject:
     def test_init_project_no_input(self, tmp_path):
         """Test project initialization when no inputs are passed."""
 
-        with chdir(tmp_path):
-            _cli.init_project(["--no-input"])
-            assert _cli.is_project_dir_initialized(tmp_path)
+        _cli.initialize_project(["--project_dir", str(tmp_path), "--no-input"])
+        assert _cli.is_project_dir_initialized(tmp_path)
 
     def test_init_project_no_args_account_input(
             self,
@@ -35,23 +34,15 @@ class TestInitProject:
             "builtins.input",
             lambda _: next(iter([TEST_ACCOUNT]))
         )
-        with chdir(tmp_path):
-            _cli.init_project()
-            assert _cli.is_project_dir_initialized(tmp_path, TEST_ACCOUNT)
+        _cli.initialize_project(["--project_dir", str(tmp_path)])
+        assert _cli.is_project_dir_initialized(tmp_path, TEST_ACCOUNT)
 
     def test_init_project_account_arg(self, tmp_path):
         """Test project initialization when an account is passed
         using args instead of input.
         """
 
-        with chdir(tmp_path):
-            _cli.init_project(["--account", TEST_ACCOUNT])
-            assert _cli.is_project_dir_initialized(tmp_path, TEST_ACCOUNT)
-
-    def test_init_project_custom_project_dir(self, tmp_path):
-        """Test project initialization when a custom project dir is passed."""
-
-        _cli.init_project([
+        _cli.initialize_project([
             "--project_dir", str(tmp_path),
             "--account", TEST_ACCOUNT,
         ])
@@ -66,9 +57,9 @@ class TestInitProject:
             "--project_dir", str(tmp_path),
             "--account", TEST_ACCOUNT,
         ]
-        _cli.init_project(args)
+        _cli.initialize_project(args)
         with pytest.raises(FileExistsError):
-            _cli.init_project(args)
+            _cli.initialize_project(args)
 
     def test_init_project_force_initialized(self, tmp_path):
         """Test forcing the initialization of a directory that has
@@ -78,7 +69,7 @@ class TestInitProject:
         paths.account_txt.write_text("def-incorrect")
         assert not _cli.is_project_paths_initialized(paths, TEST_ACCOUNT)
 
-        _cli.init_project(args = [
+        _cli.initialize_project(arguments= [
             "--project_dir", str(tmp_path),
             "--account", TEST_ACCOUNT,
             "--force",

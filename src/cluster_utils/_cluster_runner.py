@@ -1,5 +1,3 @@
-"""Classes for running jobs on a cluster."""
-
 import argparse
 import logging
 import shutil
@@ -10,15 +8,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from cluster_utils._config import ClusterConfig
+from cluster_utils._paths import ProjectPaths
 from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams
 from cluster_utils.utils import EnumAction, _RunnerStage, \
-    run_subprocess_command, ArgParser
+    run_subprocess_command, ArgParser, find_subclasses_in_script
+from cluster_utils.workflow import FullWorkflow
 
+# TODO: Move logger creation to centralized location
 logger = logging.getLogger(Path(__file__).name)
 
 
 @dataclass(frozen=True)
-class LoginRunner(ArgParser, ABC):
+class _LoginRunner(ArgParser, ABC):
     """Abstract class that handles running the portion of a run that occurs
     in the background on a login node."""
 
@@ -72,6 +74,47 @@ class LoginRunner(ArgParser, ABC):
             Whether compute jobs completed successfully.
         """
         raise NotImplementedError()
+
+    def _build_array_job_command(
+            self,
+            account: str,
+            job_name: str,
+            array_job_data_dir: Path,
+            log_file: Path,
+            wrap_args: list[str],
+            dependencies: SlurmDependencies | None = None,
+            wait=True,
+    ) -> list[str] | None:
+        """Submit a slurm array job to handle the compute portion of the job."""
+        # TODO: Add docstring (also copy to runner method)
+
+        max_array_index = ArrayJobData.find_greatest_array_job_index(
+            array_job_data_dir,
+        )
+        if max_array_index is None:
+            return None
+
+        args = [
+            "sbatch",
+            f"--job-name={job_name}",
+            f"--account={account}",
+            f"--cpus-per-task={self.cpus_per_task}",
+            f"--mem={self.memory}",
+            f"--time={self.time}",
+            f"--array=0-{max_array_index}",
+            f"--output={log_file}",
+            f"--error={log_file}",
+            f"--wrap={' '.join(wrap_args)}",
+        ]
+        if self.gpus is not None:
+            args.append(f"--gpus={self.gpus}")
+        if dependencies:
+            # TODO: Test that this works
+            args.append(f"--dependency={dependencies.as_flag_value()}")
+        if wait:
+            args.append("--wait")
+
+        return args
 
     def submit_array_job(
             self,
@@ -143,7 +186,7 @@ class LoginRunner(ArgParser, ABC):
 
 
 @dataclass(frozen=True)
-class ComputeRunner(ArgParser, ABC):
+class _ComputeRunner(ArgParser, ABC):
     """Abstract class that handles running the portion of a run that occurs
     on a cluster's compute node."""
 
@@ -247,22 +290,10 @@ class ComputeRunner(ArgParser, ABC):
 
 
 @dataclass(frozen=True)
-class ClusterRunners(ABC):
+class _ClusterRunners:
     """Manager class for orchestrating which stage to run."""
 
     _stage: _RunnerStage
-
-    @property
-    @abstractmethod
-    def login_runner(self) -> LoginRunner:
-        """Abstract property for specifying which login runner to use."""
-        pass
-
-    @property
-    @abstractmethod
-    def compute_runner(self) -> ComputeRunner:
-        """Abstract property for specifying which compute runner to use."""
-        pass
 
     def run_stage(self) -> bool:
         """Perform stage of program.
@@ -274,9 +305,9 @@ class ClusterRunners(ABC):
 
         match self._stage:
             case _RunnerStage.LOGIN:
-                return self.login_runner.run()
+                return _LoginRunner.from_args().run()
             case _RunnerStage.COMPUTE:
-                return self.compute_runner.run()
+                return _ComputeRunner.from_args().run()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 
@@ -300,3 +331,57 @@ class ClusterRunners(ABC):
         args, _ = parser.parse_known_args()
 
         return cls(_stage=args.runner_stage)
+
+
+def _find_workflow_entrypoint(workflow_script: Path) -> type[FullWorkflow]:
+    toml_field_name = "workflow-module-path"
+    target_type: type = FullWorkflow
+    if not workflow_script.is_file():
+        raise FileNotFoundError(
+            f"Could not find workflow script at '{workflow_script}'."
+            f"Update config TOML `{toml_field_name}` to point to "
+            f"your workflow script."
+        )
+    subclasses: list[type[FullWorkflow]] = find_subclasses_in_script[FullWorkflow](
+        workflow_script,
+        type(target_type)
+    )
+    if len(subclasses) != 1:
+        raise RuntimeError(
+            f"Could not find subclass of `{target_type}` in workflow script at "
+            f"'{workflow_script}'. Define a class in workflow script that "
+            f"inherits from `{target_type}`.")
+
+    return subclasses[0]
+
+
+def main():
+    # TODO: Extract log level parsing to other script
+    parser = argparse.ArgumentParser(description="Logger Management")
+    parser.add_argument(
+        "--log-level",
+        type=int,
+        default=get_environment_default_log_level(),
+        help="Numeric logging level passed from parent process."
+    )
+    parser.add_argument(
+        "--project-dir",
+        type=Path,
+        help="Path to root directory of project."
+    )
+    args, _ = parser.parse_known_args()
+
+    logger.setLevel(args.log_level)
+    paths = ProjectPaths(args.project_dir)
+    config = ClusterConfig.from_toml(paths.cluster_config_toml)
+
+    workflow_entrypoint = _find_workflow_entrypoint(
+        config.global_config.workflow_module_path
+    )
+    print(workflow_entrypoint)
+    # TODO: Call runners using entrypoint
+    # _ClusterRunners.from_args().run_stage()
+
+
+if __name__ == "__main__":
+    main()

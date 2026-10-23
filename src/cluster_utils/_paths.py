@@ -36,31 +36,51 @@ class ProjectPaths:
 
     ACCOUNT_TXT_NAME = ".account.txt"
     LOG_FILE_NAME = "last_run.log"
-    VENV_DIR_NAME = ".test_venv" # TODO: TEMP DEBUG
-    # VENV_DIR_NAME = ".venv"
+    VENV_DIR_NAME = ".cluster_venv"
+
+    @property
+    def template_paths(self) -> list[Path]:
+        """Paths where each template is found within initialized project."""
+        return list(self.src_path_to_template_path.values())
+
+    @property
+    def src_path_to_template_path(self) -> dict[Path, Path]:
+        """Mapping between template source files and their corresponding
+        locations within an initialized project."""
+        return {
+            SrcPaths.CLUSTER_CONFIG_TOML: self.cluster_config_toml,
+            SrcPaths.CLUSTER_RUNNER_SCRIPT: self.cluster_runner_script,
+        }
 
     @property
     def account_txt(self):
+        """Text file containing account to charge usage to for the project."""
         return self.project_dir / self.ACCOUNT_TXT_NAME
 
     @property
     def cluster_config_toml(self):
+        """TOML file containing configuration options for the project."""
         return self.project_dir / CLUSTER_CONFIG_TOML_NAME
 
     @property
     def cluster_runner_script(self):
+        """Python script where project logic can be executed."""
         return self.src_dir / CLUSTER_RUNNER_SCRIPT_NAME
 
     @property
     def log_file(self):
+        """Log file where log messages can be written to during runs."""
+        # TODO: Figure out way to buffer log messages so this isn't needed
         return self.project_dir / self.LOG_FILE_NAME
 
     @property
     def src_dir(self):
+        """Root directory of source code for project."""
         return self.project_dir / "src"
 
     @property
     def venv_dir(self):
+        """Root directory of virtual environment for project."""
         return self.project_dir / self.VENV_DIR_NAME
 
     @property
@@ -82,3 +102,33 @@ class ProjectPaths:
         return self.venv_bin_dir / (
             "python" if os.name != "nt" else "python.exe"
         )
+
+    def create_src_dir(self) -> None:
+        """Create src directory."""
+        self.src_dir.mkdir(exist_ok=True)
+
+    def copy_templates_to_project(self) -> None:
+        """Copy all templates to their corresponding locations
+        within a project.
+
+        Notes
+        -----
+        Overwrites any previous templates that were already present in project.
+        """
+
+        if not self.src_dir.is_dir():
+            self.create_src_dir()
+
+        for src_path, template_path in self.src_path_to_template_path.items():
+            template_path.write_text(
+                src_path.read_text()
+            )
+
+    def write_account(self, account: str) -> None:
+        """Write an account to the account file.
+
+        Notes
+        -----
+        Overwrites previous contents if account file already existed.
+        """
+        self.account_txt.write_text(account)

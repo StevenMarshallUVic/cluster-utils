@@ -3,18 +3,21 @@
 from __future__ import annotations
 import argparse
 import enum
+import importlib.util
+import inspect
 import json
 import logging
 import subprocess
+import sys
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, fields, MISSING
-from enum import StrEnum, auto
+from dataclasses import asdict, dataclass, fields, MISSING, field
+from enum import Enum, auto
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 # TODO: Create helper method for generating prefix flags
 
-class _RunnerStage(StrEnum):
+class _RunnerStage(Enum):
     """Stages of cluster program."""
 
     LOGIN = auto()
@@ -79,6 +82,127 @@ def run_subprocess_command(
 
             return False
     return True
+
+
+def find_subclasses_in_script[T](
+        path: Path,
+        target_class: type[T]
+) -> list[T]:
+    """Dynamically load a Python file and find classes that inherit from
+    a target class.
+
+    Parameters
+    ----------
+    path
+        Python script to parse.
+    target_class
+        Class to search for.
+
+    Returns
+    -------
+    list[type]
+        All classes in file that inherit from the target class.
+    """
+
+    module_name = path.stem
+
+    # Create a module specification from the file path
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load module spec for '{path}.'")
+
+    # Create module object based on the spec
+    module = importlib.util.module_from_spec(spec)
+
+    # Register in sys.modules so imports inside file resolve correctly
+    sys.modules[module_name] = module
+
+    # Execute file contents inside module context
+    spec.loader.exec_module(module)
+
+    # Inspect the module's contents
+    subclasses = []
+    for name, obj in inspect.getmembers(module, inspect.isclass):
+        # Ensure it inherits from target, is not the target itself,
+        # and was actually defined IN this file (ignores outside imports)
+        if (
+                issubclass(obj, target_class)
+                and obj is not target_class
+                and obj.__module__ == module_name
+        ):
+            subclasses.append(obj)
+
+    return subclasses
+
+
+@dataclass(frozen=True)
+class PythonPackage:
+    name: str
+    version: str | None = None
+    link: str | None = None
+
+    @property
+    def requirement_str(self):
+        target = self.link or self.name
+
+        if self.version is None:
+            return target
+
+        return f"{target}=={self.version}"
+
+    @classmethod
+    def from_requirements_txt(cls, file: Path) -> list[PythonPackage]:
+        """Create instance with requirements parsed from requirements file.
+
+        Parameters
+        ----------
+        file
+            Path to requirements file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If requirements file does not exist.
+        """
+
+        if not file.is_file():
+            raise FileNotFoundError(
+                f"Requirements file not found at '{file}'."
+            )
+
+        return [
+            cls.from_requirement_str(line.strip())
+            for line in file.read_text().splitlines()
+        ]
+
+    @classmethod
+    def from_requirement_str(cls, requirement: str):
+        if "==" in requirement:
+            parts = requirement.split("==")
+            return cls(parts[0].strip(), version=parts[1].strip())
+
+        if " @ " in requirement:
+            parts = requirement.split(" @ ")
+            return cls(parts[0].strip(), link=parts[1].strip())
+
+        raise NotImplementedError(
+            f"Unsupported requirement format: '{requirement}'."
+        )
+
+    @classmethod
+    def from_pip_list_cmd_output(cls, output: str) -> list[PythonPackage]:
+        lines = output.splitlines()
+
+        # 0-based character position of space between name and version columns
+        col_split_index = lines[1].find(" ")
+
+        return [
+            cls(
+                name=package_line[:col_split_index].strip(),
+                version=package_line[col_split_index:].strip(),
+            )
+            for package_line in lines[2:] # Skip heading lines
+        ]
 
 
 class ClusterJsonEncoder(json.JSONEncoder, ABC):
@@ -177,17 +301,18 @@ class ClusterJsonEncoder(json.JSONEncoder, ABC):
             if custom_decode is not None:
                 return custom_decode
 
-            match item["__type__"]:
-                case "Path":
-                    return Path(item["value"])
-                case "RunnerStage":
-                    return _RunnerStage(item["value"])
-                case "tuple":
-                    return tuple(item["value"])
-                case _:
-                    raise ValueError(
-                        f"Unexpected JSON custom type: '{item['__type__']}'"
-                    )
+            default_decodings = {
+                "Path": Path(item["value"]),
+                "RunnerStage": _RunnerStage(item["value"]),
+                "tuple": tuple(item["value"]),
+            }
+            default_decodings.get(item["__type__"], None)
+            if default_decodings is not None:
+                return default_decodings
+
+            raise ValueError(
+                f"Unexpected JSON custom type: '{item['__type__']}'"
+            )
         return item
 
 
@@ -348,7 +473,6 @@ class ArgParseable(ABC):
         return cls(**init_values)
 
 
-@dataclass(frozen=True)
 class ArgParser(ABC):
     @staticmethod
     @abstractmethod

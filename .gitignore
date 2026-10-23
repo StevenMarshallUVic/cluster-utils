@@ -20,8 +20,10 @@ dist/
 
 # Project files
 .account.txt
+.cluster_venv/
+
+
 # TODO: Temp debug
-.test_venv/
 .venv-3.9.25/
 cluster_config.toml
 last_run.log

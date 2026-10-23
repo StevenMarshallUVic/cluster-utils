@@ -13,141 +13,42 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from cluster_utils import PACKAGE_NAME
+from cluster_utils import PACKAGE_NAME, get_project_dir
 from cluster_utils._config import ClusterConfig
-from cluster_utils._paths import SrcPaths, ProjectPaths
+from cluster_utils._paths import ProjectPaths
 from cluster_utils._utils import ON_CLUSTER
 from cluster_utils._utils.venv import VenvCreator
+from cluster_utils._utils import io, project_init
 
 if ON_CLUSTER:
     from cluster_utils._utils.lmod import LmodModuleLoader
 
 logger = logging.getLogger(__name__)
 
-PROJECT_DIR_FLAG = "--project-dir"
 
-
-def init_project(args: Iterable[str] | None = None) -> None:
+def initialize_project(arguments: Iterable[str] | None = None) -> None:
     """Command for initializing a project's file structure for use with
     the cluster-utils framework.
 
     Parameters
     ----------
-    args
+    arguments
         (Optional) When provided, uses the given args instead of command line
         arguments.
     """
 
-    logger.info("Initializing project...")
     parser = argparse.ArgumentParser(
         prog="Cluster Project Initialization",
         description="Handles initializing project for use with cluster-utils "
                     "framework.",
         add_help=True,
     )
-    parser.add_argument(
-        "-a", "--account",
-        help="(Optional) Account to charge slurm usage to. "
-             "If not provided, you will be required to specify an account "
-             "each time you submit a run.",
-        type=str,
-        required=False,
-    )
-    parser.add_argument(
-        "-d", "--project_dir",
-        help="(Optional) Root directory of project to initialize. "
-             "When not provided, defaults to current working directory.",
-        type=Path,
-        default=Path.cwd(),
-        required=False,
-    )
-    parser.add_argument(
-        "-f", "--force",
-        help="(Optional) Whether to overwrite any existing files that conflict with "
-             "files generated during initialization.",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-    )
-    parser.add_argument(
-        "--no-input",
-        help="(Optional) Bypass any manual input prompts.",
-        action="store_true",
-    )
-    args = parser.parse_args(args)
-    no_input: bool = args.no_input
+    project_init.ProjectInitParams.add_arguments(parser)
+    args = parser.parse_args(arguments)
 
-    # Prompt user to specify account if flag was not provided
-    account: str | None = args.account if "account" in args else None
-    if account is None and not no_input:
-        logger.warning(
-            "`--account` flag not provided. "
-            "Please specify Digital Research Alliance of Canada account to "
-            "charge usage to (e.g. 'def-name')?"
-        )
-        manual_account = input(
-            "INPUT: Account (leave blank to skip): "
-        )
-        if manual_account:
-            account = manual_account
-
-    project_paths = ProjectPaths(args.project_dir)
-    files_to_check = [
-        project_paths.cluster_config_toml,
-        project_paths.cluster_runner_script,
-    ]
-    if account:
-        files_to_check.append(project_paths.account_txt)
-
-    existing_files = [p for p in files_to_check if p.exists()]
-    force: bool = args.force
-    if existing_files:
-        existing_files_str = ", ".join([str(f) for f in existing_files])
-        if force:
-            logger.warning(
-                "One or more initialization files already exists "
-                "in this directory, overwriting: %s.",
-                existing_files_str,
-            )
-        else:
-            raise FileExistsError(
-                "One or more initialization files already exists in "
-                f"this directory, skipping initialization: {existing_files_str}."
-                "\nIf you want to overwrite these files, "
-                "use the `-f`/`--force` flag."
-            )
-
-    # Copy config TOML to project directory
-    project_paths.cluster_config_toml.write_text(
-        SrcPaths.CLUSTER_CONFIG_TOML.read_text()
+    project_init.initialize_project(
+        project_init.ProjectInitParams.from_args(args)
     )
-    logger.info(
-        "Default config created at '%s'.",
-        project_paths.cluster_config_toml,
-    )
-
-    # Copy script templates to project src directory
-    project_paths.src_dir.mkdir(exist_ok=True)
-    project_paths.cluster_runner_script.write_text(
-        SrcPaths.CLUSTER_RUNNER_SCRIPT.read_text()
-    )
-    logger.info(
-        "Default cluster runner script created at '%s'."
-        "Modify template to implement custom logic.",
-        project_paths.cluster_runner_script,
-    )
-
-    # Write account text file if value provided
-    if account:
-        project_paths.account_txt.write_text(account)
-        logger.info(
-            "Account file created at '%s'.",
-            project_paths.account_txt
-        )
-
-    if not is_project_paths_initialized(project_paths, account):
-        raise Exception("Project directory structure failed to initialize.")
-
-    logger.info("Project successfully initialized!")
 
 
 def perform_run(args: Iterable[str] | None = None):
@@ -160,23 +61,10 @@ def perform_run(args: Iterable[str] | None = None):
         arguments.
     """
     # TODO: Write tests
+    # TODO: Abstract out into functions
 
     logger.info("Performing run...")
-    parser = argparse.ArgumentParser(
-        prog="Cluster Run Launcher",
-        description="Handles launching a run on a cluster.",
-        add_help=False,
-    )
-    parser.add_argument(
-        PROJECT_DIR_FLAG,
-        help="(Optional) Root directory of project to initialize. "
-             "When not provided, defaults to current working directory.",
-        type=Path,
-        default=Path.cwd(),
-        required=False,
-    )
-    args, _ = parser.parse_known_args(args)
-    paths = ProjectPaths(args.project_dir)
+    paths = ProjectPaths(get_project_dir())
     if not is_project_paths_initialized(paths):
         raise RuntimeError(
             "Trying to perform run on project that has not been initialized. "
@@ -187,21 +75,26 @@ def perform_run(args: Iterable[str] | None = None):
 
     # TODO: Add branch for loading compute module if on compute node
     if ON_CLUSTER:
-        LmodModuleLoader().load_modules(config.login_environment.modules)
+        LmodModuleLoader().purge_and_load_modules(config.login_environment.modules)
 
     # TODO: Add branch for creating venv on compute node if on compute node
     logger.info("Initializing run virtual environment...")
-    VenvCreator(paths, config.login_environment).create_and_initialize_venv()
+    requirements_file = config.login_environment.requirements_file
+    venv = VenvCreator.from_requirements_txt(
+        requirements_file,
+        paths=paths
+    ) if (requirements_file and requirements_file.is_file()) \
+        else VenvCreator(paths)
+    venv.create_and_initialize_venv()
 
     logger.info("Passing execution to virtual environment in background...")
-
     # Build command line arguments
     args = [
-        "python", paths.cluster_runner_script,
-        "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel())
+        # TODO: Replace hard-coded path
+        "python", "src/cluster_utils/_cluster_runner.py",
+        "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel()),
+        "--project-dir", paths.project_dir,
     ] + sys.argv[1:]
-    if PROJECT_DIR_FLAG not in args:
-        args += [PROJECT_DIR_FLAG, paths.project_dir]
 
     # Run login script in background
     sys.stdout.flush()
@@ -239,31 +132,26 @@ def is_project_paths_initialized(
         initialized project.
     """
 
-    for file, log_name in {
-        paths.cluster_config_toml: "config",
-        paths.cluster_runner_script: "compute script",
-    }.items():
-        if not file.is_file():
+    missing_template_files = io.get_missing_files(paths.template_paths)
+    if len(missing_template_files) > 0:
+        for missing_template_file in missing_template_files:
             logger.warning(
-                "Could not find %s at '%s'.",
-                log_name,
-                file,
+                "Could not find file at '%s'.",
+                missing_template_file,
+            )
+        return False
+
+    if account:
+        if not paths.account_txt.is_file():
+            logger.warning(
+                "Account file not found at '%s'.",
+                paths.account_txt,
             )
             return False
 
-    if paths.account_txt.is_file():
-        account_contents = paths.account_txt.read_text().strip()
-        if account:
-            if account_contents.strip() != account:
-                logger.warning(
-                    "Expected account '%s', got account '%s'.",
-                    account,
-                    account_contents,
-                )
-                return False
-        elif len(account_contents) == 0:
+        if not io.does_file_contain_exactly(paths.account_txt, account):
             logger.warning(
-                "Empty account file at '%s'.",
+                "Account file expected to contain '%s', found '%s'.",
                 paths.account_txt,
             )
             return False

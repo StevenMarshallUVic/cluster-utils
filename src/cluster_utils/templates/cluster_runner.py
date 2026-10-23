@@ -161,23 +161,3 @@ class CustomClusterRunners(ClusterRunners):
     @property
     def compute_runner(self) -> ComputeRunner:
         return CustomComputeRunner.from_args()
-
-
-def main():
-    # TODO: Move all runtime logic to private runner script and only use this file to access classes
-    # TODO: Extract log level parsing to other script
-    parser = argparse.ArgumentParser(description="Logger Management")
-    parser.add_argument(
-        "--log-level",
-        type=int,
-        default=get_environment_default_log_level(),
-        help="Numeric logging level passed from parent process."
-    )
-    args, _ = parser.parse_known_args()
-    logger.setLevel(args.log_level)
-
-    CustomClusterRunners.from_args().run_stage()
-
-
-if __name__ == "__main__":
-    main()

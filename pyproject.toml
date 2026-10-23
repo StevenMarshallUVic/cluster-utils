@@ -3,8 +3,8 @@ requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cam_cluster_utils"
-version = "1.0.0b38"
+name = "cam-cluster-utils"
+version = "1.0.0b39"
 authors = [
   { name="Steven Marshall", email="stevenmarshall@uvic.ca" },
 ]
@@ -24,7 +24,7 @@ where = ["src"]
 cluster_utils = ["scripts/*", "templates/*"]
 
 [project.scripts]
-cluster-init = "cluster_utils._cli:init_project"
+cluster-init = "cluster_utils._cli:initialize_project"
 cluster-run = "cluster_utils._cli:perform_run"
 
 [project.urls]
