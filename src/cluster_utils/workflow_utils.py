@@ -31,6 +31,7 @@ def find_subclasses_in_script[T](
         All classes in file that inherit from the target class.
     """
 
+    print("target:", target_class)
     module_name = path.stem
 
     # Create a module specification from the file path
