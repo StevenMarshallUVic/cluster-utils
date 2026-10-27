@@ -6,36 +6,62 @@ from dataclasses import dataclass
 from cluster_utils.data import SlurmJob
 
 
-@dataclass
 class LoginWorkflow(ABC):
-    @property
+    # TODO: Turn into class decorator?
+    def __new__(cls, *args, **kwargs):
+        raise TypeError(
+            f"Class '{cls.__name__}' is static and cannot be instantiated."
+        )
+
+    @staticmethod
     @abstractmethod
-    def jobs(self) -> list[type[SlurmJob]]:
+    def jobs() -> list[type[SlurmJob]]:
         """Jobs to run. Order determines order of jobs submitted."""
         raise NotImplementedError()
 
+    @staticmethod
     @abstractmethod
-    def pre_initialize(self) -> bool:
+    def pre_initialize() -> bool:
         return True
 
+    @staticmethod
     @abstractmethod
-    def post_initialize(self) -> bool:
+    def transfer_input_to_run(input_path: Path, input_dir: Path) -> None:
+        """Abstract method for handling the transfer of inputs to the run
+        input directory.
+
+        Parameters
+        ----------
+        input_path
+            Path to input to handle transfer for.
+        input_dir
+            Run input directory to transfer to.
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    @abstractmethod
+    def post_initialize() -> bool:
         return True
 
+    @staticmethod
     @abstractmethod
-    def pre_job_submission(self) -> bool:
+    def pre_job_submission() -> bool:
         return True
 
+    @staticmethod
     @abstractmethod
-    def post_job_submission(self) -> bool:
+    def post_job_submission() -> bool:
         return True
 
+    @staticmethod
     @abstractmethod
-    def pre_post_process(self) -> bool:
+    def pre_post_process() -> bool:
         return True
 
+    @staticmethod
     @abstractmethod
-    def post_post_process(self) -> bool:
+    def post_post_process() -> bool:
         return True
 
 

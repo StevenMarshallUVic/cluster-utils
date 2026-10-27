@@ -75,17 +75,17 @@ class ArgParser(ABC):
 
     @staticmethod
     @abstractmethod
-    def argument_sources() -> list[type[ArgParseable]]:
+    def static_argument_sources() -> list[type[ArgParseable]]:
         """Abstract property for specifying additional argument sources."""
         return []
 
     @classmethod
     @abstractmethod
-    def from_custom_args(cls, args: argparse.Namespace) -> Self:
+    def from_custom_args(cls, args: argparse.Namespace, **kwargs) -> Self:
         raise NotImplementedError()
 
     @classmethod
-    def from_args(cls) -> Self:
+    def from_args(cls, **kwargs) -> Self:
         """Create instance from command line arguments."""
 
         parser = argparse.ArgumentParser(
@@ -94,8 +94,8 @@ class ArgParser(ABC):
             epilog="See README.md for more information.",
             conflict_handler="resolve",
         )
-        for argument_source in cls.argument_sources():
+        for argument_source in cls.static_argument_sources():
             argument_source.add_arguments(parser)
 
         args, _ = parser.parse_known_args()
-        return cls.from_custom_args(args)
+        return cls.from_custom_args(args, **kwargs)

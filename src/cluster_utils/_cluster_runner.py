@@ -2,10 +2,10 @@ import argparse
 import logging
 import shutil
 import subprocess
-from collections.abc import Callable, Iterable, Collection
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Self, ClassVar
 
 from cluster_utils import get_environment_default_log_level, init_logger
 from cluster_utils._config import ClusterConfig
@@ -36,16 +36,6 @@ class _LoginParams(ArgParseable):
             "Login Parameters",
             "Parameters used for login portion of Slurm job."
         )
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "--account",
-            help=f"(Optional) Digital Research Alliance of Canada account to "
-                 f"charge usage to. "
-                 f"When not supplied, attempts to find value in account file.",
-            type=str,
-        )
 
 
 @dataclass(frozen=True)
@@ -57,6 +47,8 @@ class _LoginRunner(ArgParser):
     paths: Paths
     inputs: Input
 
+    workflow: ClassVar[type[LoginWorkflow]]
+
     @staticmethod
     def parser_name() -> str:
         return "Login Runner"
@@ -67,10 +59,18 @@ class _LoginRunner(ArgParser):
                 "Digital Research Alliance of Canada cluster.")
 
     @staticmethod
-    def argument_sources() -> list[type[ArgParseable]]:
-        return [_LoginParams, Paths, Input]
+    def static_argument_sources() -> list[type[ArgParseable]]:
+        static_argument_sources = [_LoginParams, Paths, Input]
+        for job in _LoginRunner.workflow.jobs():
+            slurm_params_type = type(
+                job.job_name().title(),
+                (SlurmParams,),
+                {"job": job}
+            )
+            static_argument_sources.append(slurm_params_type)
+        return static_argument_sources
 
-    def run(self, workflow: LoginWorkflow) -> bool:
+    def run(self) -> bool:
         """Perform login portion of run.
 
         Returns
@@ -78,28 +78,28 @@ class _LoginRunner(ArgParser):
         Whether login tasks were run successfully.
         """
 
-        if not workflow.pre_initialize():
+        if not self.workflow.pre_initialize():
             return False
         if not self.initialize():
             return False
-        if not workflow.post_initialize():
+        if not self.workflow.post_initialize():
             return False
 
-        if not workflow.pre_job_submission():
+        if not self.workflow.pre_job_submission():
             return False
-        if not self.submit_compute_jobs(workflow.jobs):
+        if not self.submit_compute_jobs():
             logger.warning(
                 "One or more compute jobs failed, skipping post processing."
             )
             return False
-        if not workflow.post_job_submission():
+        if not self.workflow.post_job_submission():
             return False
 
-        if not workflow.pre_post_process():
+        if not self.workflow.pre_post_process():
             return False
         if not self.post_process():
             return False
-        if not workflow.post_post_process():
+        if not self.workflow.post_post_process():
             return False
 
         return True
@@ -115,7 +115,7 @@ class _LoginRunner(ArgParser):
         # TODO: Move run initialization logic from Paths class to here
         return True
 
-    def submit_compute_jobs(self, jobs: Collection[type[SlurmJob]]) -> bool:
+    def submit_compute_jobs(self) -> bool:
         """Submit user-designed compute jobs.
 
         Returns
@@ -124,31 +124,29 @@ class _LoginRunner(ArgParser):
             Whether compute jobs completed successfully.
         """
 
-        if len(jobs) <= 0:
+        if len(self.workflow.jobs()) <= 0:
             logger.info("No jobs to submit!")
             return True
 
-        job_class_to_slurm_id: dict[type[SlurmJob], int] = {}
-        for job_class in jobs:
-            job = job_class()
-
+        job_to_slurm_id: dict[type[SlurmJob], int] = {}
+        for job in self.workflow.jobs():
             depends: list[SlurmDependency] = []
-            for depend_job_class, depend_type in job.job_dependencies.items():
-                if depend_job_class not in job_class_to_slurm_id:
+            for depend_job, depend_type in job.job_dependencies().items():
+                if depend_job not in job_to_slurm_id:
                     raise RuntimeError(
-                        f"Trying to submit job '{job.job_name}' "
-                        f"before dependency '{depend_job_class().job_name}'."
+                        f"Trying to submit job '{job.job_name()}' "
+                        f"before dependency '{depend_job.job_name()}'."
                     )
                 depends.append(SlurmDependency(
                     depend_type,
-                    tuple([job_class_to_slurm_id[depend_job_class]]),
+                    tuple([job_to_slurm_id[depend_job]]),
                 ))
             dependencies = SlurmDependencies(
                 dependencies=tuple(depends),
-                require_all_dependencies=job.require_all_dependencies,
+                require_all_dependencies=job.require_all_dependencies(),
             ) if len(depends) > 0 else None
 
-            match job.job_type:
+            match job.job_type():
                 case SlurmJobType.ARRAY:
                     if not self.submit_array_job(
                         job,
@@ -172,10 +170,9 @@ class _LoginRunner(ArgParser):
                     )
         return True
 
-
     def submit_array_job(
             self,
-            job: SlurmJob,
+            job: type[SlurmJob],
             extra_job_wrap_args: list[str] | None = None,
             dependencies: SlurmDependencies | None = None,
     ) -> bool:
@@ -194,7 +191,7 @@ class _LoginRunner(ArgParser):
         ]
 
         # TODO: Figure out better system for initializing
-        args = SlurmParams.from_args_job_fallbacks(job=job).build_array_job_command(
+        args = SlurmParams.from_args_job_fallbacks().build_array_job_command(
             job,
             self.login_params.account,
             wrap_args,
@@ -236,11 +233,12 @@ class _LoginRunner(ArgParser):
         return True
 
     @classmethod
-    def from_custom_args(cls, args: argparse.Namespace) -> Self:
+    def from_custom_args(cls, args: argparse.Namespace, **kwargs) -> Self:
         return cls(
             login_params=_LoginParams.from_args(args),
             paths=Paths.from_args(args),
             inputs=Input.from_args(args),
+            **kwargs
         )
 
 
@@ -262,7 +260,7 @@ class _ComputeRunner(ArgParser):
                 "Digital Research Alliance of Canada cluster.")
 
     @staticmethod
-    def argument_sources() -> list[type[ArgParseable]]:
+    def static_argument_sources() -> list[type[ArgParseable]]:
         return [ArrayJobInstanceParams]
 
     @property
@@ -351,12 +349,15 @@ class _ComputeRunner(ArgParser):
             func(input_file)
 
     @classmethod
-    def from_custom_args(cls, args: argparse.Namespace) -> Self:
+    def from_custom_args(cls, args: argparse.Namespace, **kwargs) -> Self:
+        if len(kwargs) > 0:
+            raise ValueError(f"Unexpected kwargs: {kwargs}.")
+
         array_job_params = ArrayJobInstanceParams.from_args(args)
         paths = Paths.from_json(array_job_params.paths_json)
         job_data = ArrayJobData.from_json(
             ArrayJobData.build_json_path(
-                paths.attempt_array_job_data_dir,
+                paths.array_job_data_dir,
                 array_job_params.array_job_index,
             )
         )
@@ -384,9 +385,8 @@ class _ClusterRunners:
         workflow = self._workflow_class()
         match self._stage:
             case _RunnerStage.LOGIN:
-                return _LoginRunner.from_args().run(
-                    workflow.login_workflow(),
-                )
+                _LoginRunner.workflow = workflow.login_workflow
+                return _LoginRunner.from_args().run()
             case _RunnerStage.COMPUTE:
                 return _ComputeRunner.from_args().run(
                     workflow.compute_workflow(),

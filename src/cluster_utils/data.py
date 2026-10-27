@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import auto, StrEnum
 from math import ceil
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from cluster_utils import init_logger
 from cluster_utils.utils import ArgParseable, JsonSerializable
@@ -175,59 +175,65 @@ class SlurmDependencies:
 
 @dataclass
 class SlurmJob(ABC):
-    @property
+    # TODO: Turn into class decorator?
+    def __new__(cls, *args, **kwargs):
+        raise TypeError(
+            f"Class '{cls.__name__}' is static and cannot be instantiated."
+        )
+
+    @staticmethod
     @abstractmethod
-    def job_name(self) -> str:
+    def job_name() -> str:
         """Name of Slurm job. Will be shown in slurm job displays."""
         pass
 
-    @property
+    @staticmethod
     @abstractmethod
-    def default_batch_size(self) -> int:
+    def default_batch_size() -> int:
         """Default number of inputs to batch together if an override is not
         provided on the command line.
         """
         pass
 
-    @property
+    @staticmethod
     @abstractmethod
-    def default_memory(self) -> str:
+    def default_memory() -> str:
         """Default RAM to allocate if an override is not
         provided on the command line.
         """
         pass
 
-    @property
+    @staticmethod
     @abstractmethod
-    def default_time(self) -> str:
+    def default_time() -> str:
         """Default runtime to allocate if an override is not
         provided on the command line.
         """
         pass
 
-    @property
+    @staticmethod
     @abstractmethod
-    def default_cpus_per_task(self) -> int:
+    def default_cpus_per_task() -> int:
         """Default number of CPUs to allocate if an override is not
         provided on the command line.
         """
         return 1
 
-    @property
+    @staticmethod
     @abstractmethod
-    def gpus(self) -> str | None:
+    def gpus() -> str | None:
         """Optional number and type of GPUs to allocate."""
         return None
 
-    @property
+    @staticmethod
     @abstractmethod
-    def job_type(self) -> SlurmJobType:
+    def job_type() -> SlurmJobType:
         """Type of slurm job to submit."""
         return SlurmJobType.ARRAY
 
-    @property
+    @staticmethod
     @abstractmethod
-    def arg_prefix(self) -> str | None:
+    def arg_prefix() -> str | None:
         """Optional prefix to add to command line arguments for slurm params.
 
         Helpful when defining more than one SlurmJob in project, allowing
@@ -235,54 +241,21 @@ class SlurmJob(ABC):
         """
         return None
 
-    @property
+    @staticmethod
     @abstractmethod
-    def job_dependencies(
-            self
-    ) -> dict[type[SlurmJob], SlurmDependencyType]:
+    def job_dependencies() -> dict[type[SlurmJob], SlurmDependencyType]:
         """Mapping between jobs that this job depends on and the nature
         of the dependency.
         """
         return {}
 
-    @property
+    @staticmethod
     @abstractmethod
-    def require_all_dependencies(self) -> bool:
+    def require_all_dependencies() -> bool:
         """When true, all dependencies must be satisfied.
         Otherwise, any dependency may be satisfied.
         """
         return True
-
-
-@dataclass(frozen=True)
-class Input(ArgParseable, JsonSerializable):
-    """Base class for storing input data.
-
-    Attributes
-    ----------
-    input_path
-        Path to file/directory containing input.
-    """
-
-    input_path: Path
-
-    @classmethod
-    def add_arguments(
-            cls,
-            parser: argparse.ArgumentParser,
-            group: argparse._ArgumentGroup | None = None,
-            prefix: str | None = None,
-    ) -> None:
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "-i", "--input-path",
-            dest="input_path",
-            help="Path to input(s). "
-                 "See README.md for explanation of valid inputs.",
-            type=Path,
-        )
 
 
 @dataclass(frozen=True)
@@ -309,31 +282,10 @@ class SlurmParams(ArgParseable, JsonSerializable):
     cpus_per_task: int = DEFAULT_CPUS_PER_TASK
     gpus: str | None = None
 
-    # TODO: Currently discards cmd line value, find out better way to handle
-    # TODO: Move to class that exposes --account argument
-    # @staticmethod
-    # def read_account_from_file(account_file: Path) -> str | None:
-    #     """Parse an account from a plain-text file containing the account.
-    #
-    #     Parameters
-    #     ----------
-    #     account_file
-    #         Path to a plain-text file containing an account.
-    #
-    #     Returns
-    #     -------
-    #     str | None
-    #         The account if the file exists, or None if not.
-    #     """
-    #     if not account_file.is_file():
-    #         return None
-    #
-    #     account = open(account_file).read().strip()
-    #     return account
+    job: ClassVar[type[SlurmJob]]
 
     def build_array_job_command(
             self,
-            job: SlurmJob,
             account: str,
             wrap_args: list[str],
             dependencies: SlurmDependencies | None = None,
@@ -372,18 +324,18 @@ class SlurmParams(ArgParseable, JsonSerializable):
         return args
 
     @classmethod
-    def from_args_job_fallbacks(cls, args: argparse.Namespace, job: SlurmJob):
+    def from_args_job_fallbacks(cls, args: argparse.Namespace):
         """Create instance from command line arguments, falling back to
         defaults defined in the given slurm job for flags not provided.
         """
 
         return cls.from_args(
             args,
-            batch_size=job.default_batch_size,
-            memory=job.default_memory,
-            time=job.default_time,
-            cpus_per_task=job.default_cpus_per_task,
-            gpus=job.gpus,
+            batch_size=cls.job.default_batch_size(),
+            memory=cls.job.default_memory(),
+            time=cls.job.default_time(),
+            cpus_per_task=cls.job.default_cpus_per_task(),
+            gpus=cls.job.gpus(),
         )
 
     @classmethod
@@ -443,8 +395,8 @@ class SlurmParams(ArgParseable, JsonSerializable):
 
 
 @dataclass(frozen=True)
-class Paths(ArgParseable, JsonSerializable):
-    """Base class for storing paths used in a run.
+class ProjectPaths(ArgParseable, JsonSerializable):
+    """
 
     Attributes
     ----------
@@ -454,36 +406,21 @@ class Paths(ArgParseable, JsonSerializable):
         Path to root directory of project.
     scratch_dir
         Path to root directory of scratch file system for a user.
-    run_dir
-        Path to root directory of the current run.
-    run_name
-        Name of the current run.
-    current_attempt_index
-        1-based index of the current attempt.
     """
 
+    account: str
     project_name: str
     project_dir: Path
     scratch_dir: Path
-    run_dir: Path
-    run_name: str
-    current_attempt_index: int
 
-    ATTEMPT_DIR_PREFIX = "attempt_"
-
-    PATHS_JSON_NAME = "paths.json"
-    SLURM_PARAMS_JSON_NAME = "slurm_params.json"
-
-    #region Abstract Properties
+    # TODO: Confirm this can be removed
     @property
     @abstractmethod
     def runner_module_path(self) -> str:
         """Abstract property for specifying the module path to the runner
         script."""
         pass
-    #endregion
 
-    #region Project Directory
     @property
     def account_file(self):
         """Default path to the account file for this project."""
@@ -494,13 +431,12 @@ class Paths(ArgParseable, JsonSerializable):
         """Source directory of project."""
         return self.project_dir / "src"
 
+    # TODO: Confirm this can be removed
     @property
     def cluster_compute_shell_script(self) -> Path:
         """Path to shell script for initializing environment on compute node."""
         return self.src_dir / "compute.sh"
-    #endregion
 
-    #region Scratch Directory
     @property
     def scratch_project_dir(self) -> Path:
         """Root directory where project files will be saved on the scratch file
@@ -512,71 +448,94 @@ class Paths(ArgParseable, JsonSerializable):
         """Root directory where runs will be saved."""
         return self.scratch_project_dir / "runs"
 
-    @property
-    def run_attempts_dir(self) -> Path:
-        """Root directory where attempts for the current run will be saved."""
-        return self.run_dir / "attempts"
+    @staticmethod
+    def read_account_from_file(account_file: Path) -> str | None:
+        """Parse an account from a plain-text file containing the account.
 
-    @property
-    def current_attempt_dir(self) -> Path:
-        """Directory of current attempt."""
-        return (self.run_attempts_dir
-                / f"{self.ATTEMPT_DIR_PREFIX}{self.current_attempt_index}")
+        Parameters
+        ----------
+        account_file
+            Path to a plain-text file containing an account.
 
-    @property
-    def logs_dir(self) -> Path:
-        """Directory where log files will be written to for this attempt."""
-        return self.current_attempt_dir / "logs"
+        Returns
+        -------
+        str | None
+            The account if the file exists, or None if not.
+        """
 
-    @property
-    def login_background_log_file(self) -> Path:
-        """Log file where background logging will be written to."""
-        return self.logs_dir / f"{self.project_name}-login.log"
+        if not account_file.is_file():
+            return None
 
-    @property
-    def compute_log_file(self) -> Path:
-        """Log file where compute logging will be written to."""
-        return self.logs_dir / f"{self.project_name}-compute-%A_%a.log"
+        account = open(account_file).read().strip()
+        return account
 
-    @property
-    def attempt_array_job_data_dir(self) -> Path:
-        """Directory of array job data for the current attempt."""
-        return self.current_attempt_dir / "array_job_data"
+    @classmethod
+    def add_arguments(
+            cls,
+            parser: argparse.ArgumentParser,
+            group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
+    ) -> None:
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--account",
+            help=f"(Optional) Digital Research Alliance of Canada account to "
+                 f"charge usage to. "
+                 f"When not supplied, attempts to find value in account file.",
+            type=str,
+            # TODO: Handle default
+            default=cls.read_account_from_file(),
+        )
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--project-dir",
+            dest="project_dir",
+            help="(Optional) Path to project directory. "
+                 "When not supplied, inferred from relative file structure.",
+            type=Path,
+        )
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--scratch-dir",
+            dest="scratch_dir",
+            help="(Optional) Path to scratch directory on cluster. "
+                 "When not supplied, retrieved from environment.",
+            type=Path,
+            default=os.getenv(SCRATCH_ENV_VAR),
+        )
 
-    @property
-    def attempt_params_dir(self) -> Path:
-        """Directory where parameter for the current attempt will be saved."""
-        return self.current_attempt_dir / "params"
 
-    @property
-    def attempt_paths_json(self) -> Path:
-        """JSON file to write path data for the current attempt to."""
-        return self.attempt_params_dir / self.PATHS_JSON_NAME
+@dataclass(frozen=True)
+class RunPaths(ArgParseable, JsonSerializable):
+    """
 
-    @property
-    def attempt_slurm_params_json(self) -> Path:
-        """JSON file to write slurm parameters for the current attempt to."""
-        return self.attempt_params_dir / self.SLURM_PARAMS_JSON_NAME
+    Attributes
+    ----------
+    run_name
+        Name of the current run.
+    run_dir
+        Path to root directory of the current run.
+    input_path
+        Path to input to perform run on.
+    """
+
+    run_name: str
+    run_dir: Path
+    input_path: Path | None = None
+
+    PATHS_JSON_NAME = "paths.json"
+    SLURM_PARAMS_JSON_NAME = "slurm_params.json"
 
     @property
     def input_dir(self) -> Path:
         """Directory containing input files for the current run."""
         return self.run_dir / "input"
-
-    @property
-    def run_params_dir(self) -> Path:
-        """Directory where parameters for the current run will be saved."""
-        return self.run_dir / ".params"
-
-    @property
-    def run_paths_json(self) -> Path:
-        """JSON file to write path data for the current run to."""
-        return self.run_params_dir / self.PATHS_JSON_NAME
-
-    @property
-    def run_slurm_params_json(self) -> Path:
-        """JSON file to write slurm parameters for the current run to."""
-        return self.run_params_dir / self.SLURM_PARAMS_JSON_NAME
 
     @property
     def output_dir(self) -> Path:
@@ -587,90 +546,34 @@ class Paths(ArgParseable, JsonSerializable):
     def results_dir(self) -> Path:
         """Directory where results for the current run will be saved."""
         return self.run_dir / "results"
-    #endregion
 
-    def get_job_array_job_data_dir(self, job: SlurmJob) -> Path:
-        return self.attempt_array_job_data_dir / job.job_name
+    @property
+    def params_dir(self) -> Path:
+        """Directory where parameters for the current run will be saved."""
+        return self.run_dir / ".params"
 
-    def get_job_log_file_path(self, job: SlurmJob) -> Path:
-        match job.job_type:
-            case SlurmJobType.ARRAY:
-                return self.logs_dir / f"{job.job_name}-%A_%a.log.log"
-            case SlurmJobType.SINGLE:
-                return self.logs_dir / f"{job.job_name}.log"
-            case _:
-                raise NotImplementedError(
-                    f"Unsupported slurm job type: '{job.job_type}'."
-                )
+    @property
+    def paths_json(self) -> Path:
+        """JSON file to write path data for the current run to."""
+        return self.params_dir / self.PATHS_JSON_NAME
 
-    def initialize_run(self, input_path: Path) -> None:
-        """Perform run file structure initialization.
+    @property
+    def slurm_params_json(self) -> Path:
+        """JSON file to write slurm parameters for the current run to."""
+        return self.params_dir / self.SLURM_PARAMS_JSON_NAME
 
-        Built-in run initialization includes:
-            - Run directory creation
-            - Attempt directory creation
-            - Input directory creation
-            - Output directory creation
+    @property
+    def attempts_dir(self) -> Path:
+        """Root directory where attempts for the current run will be saved."""
+        return self.run_dir / "attempts"
 
-        Parameters
-        ----------
-        input_path
-            Path to input file/directory to initialize.
-        """
+    def initialize_run_dir(self) -> None:
+        """Initialize run directory."""
+        self.run_dir.mkdir(parents=True, exist_ok=True)
 
-        if not self.run_dir.is_dir():
-            self._initialize_run_dir()
-
-        self._initialize_attempt_dir()
-        self._initialize_input_dir(input_path)
-        self._initialize_output_dir()
-
-        logger.info(
-            f"Performing attempt {self.current_attempt_index} of run "
-            f"found at '{self.run_dir}'."
-        )
-        self.perform_custom_run_initialization()
-
-    @abstractmethod
-    def perform_custom_run_initialization(self) -> None:
-        """Perform full run file structure initialization."""
-        pass
-
-    def initialize_params_dirs(
-            self,
-            param_to_run_json_path: dict[JsonSerializable, Path],
-            param_to_attempt_json_path: dict[JsonSerializable, Path],
-    ) -> None:
-        """Write param JSON files."""
-
-        if self.current_attempt_index == 1:
-            self.run_params_dir.mkdir(parents=True, exist_ok=True)
-            for param, json_path in param_to_run_json_path.items():
-                param.to_json(json_path)
-
-        self.attempt_params_dir.mkdir(parents=True, exist_ok=True)
-        for param, json_path in param_to_attempt_json_path.items():
-            param.to_json(json_path)
-
-    def write_missing_results_array_job_data(
-            self,
-            batch_size: int
-    ) -> list[Path]:
-        """Write array job data for current attempt based on inputs that are
-        still missing an associated output file.
-
-        Parameters
-        ----------
-        batch_size
-            Number of input files to batch together into each array job.
-        """
-
-        return ArrayJobData.write_array_job_data(
-            self.attempt_array_job_data_dir,
-            self.get_missing_output_input_files(file_suffix=".tsv"),
-            batch_size,
-        )
-
+    # TODO: Come up with abstract method/dataclass for allowing user to specify
+    #       custom logic for determining whether an output has been generated
+    #       for an input
     def get_missing_output_input_files(
             self,
             input_dir: Path | None = None,
@@ -730,17 +633,7 @@ class Paths(ArgParseable, JsonSerializable):
                 incomplete_paths.append(input_path)
         return sorted(incomplete_paths)
 
-    def _initialize_run_dir(self) -> None:
-        """Initialize run directory."""
-        self.run_dir.mkdir(parents=True, exist_ok=True)
-
-    def _initialize_attempt_dir(self) -> None:
-        """Initialize current attempt directory."""
-        self.run_attempts_dir.mkdir(parents=True, exist_ok=True)
-        self.current_attempt_dir.mkdir(parents=True)
-        self.logs_dir.mkdir(parents=True)
-
-    def _initialize_input_dir(self, input_path: Path) -> None:
+    def initialize_input_dir(self, input_path: Path) -> None:
         """Create input directory and populate with input.
 
         Parameters
@@ -749,137 +642,19 @@ class Paths(ArgParseable, JsonSerializable):
             Path to input file/directory to initialize.
         """
 
-        logger.debug("Initializing input directory...")
         if self.input_dir.is_dir():
             return
 
+        logger.debug("Initializing input directory...")
         self.input_dir.mkdir(parents=True)
         logger.debug("Transferring inputs to input directory...")
         self.transfer_input_to_run(input_path, self.input_dir)
 
-    @abstractmethod
-    def transfer_input_to_run(self, input_path: Path, input_dir: Path) -> None:
-        """Abstract method for handling the transfer of inputs to the run
-        input directory.
-
-        Parameters
-        ----------
-        input_path
-            Path to input to handle transfer for.
-        input_dir
-            Run input directory to transfer to.
-        """
-        raise NotImplementedError()
-
-    def _initialize_output_dir(self) -> None:
+    def initialize_output_dir(self) -> None:
         """Create output directory."""
 
         logger.debug("Initializing output directory...")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-
-    # TODO: Replace hacks with proper implementation
-    @classmethod
-    def construct_runs_root_dir(cls, scratch_dir: Path, project_name: str) -> Path:
-        """Hacky way to bypass creating instance to get access to paths.
-
-        Parameters
-        ----------
-        scratch_dir
-            Path to root directory of scratch file system.
-
-        Returns
-        -------
-        Path
-            Path to root directory where runs are saved.
-        """
-
-        return scratch_dir / project_name / "runs"
-
-    @classmethod
-    def construct_attempts_dir(cls, run_dir: Path) -> Path:
-        """Hacky way to bypass creating instance to get access to paths.
-
-        Parameters
-        ----------
-        run_dir
-            Path to root directory where runs are saved.
-
-        Returns
-        -------
-        Path
-            Path to directory where attempts for the current run are saved.
-        """
-
-        return run_dir / "attempts"
-
-    @classmethod
-    def from_previous_run_dir(
-            cls,
-            args: argparse.Namespace,
-            run_dir: Path,
-            **fallbacks: Any
-    ):
-        """Create instance populated using data from a previous run.
-
-        Parameters
-        ----------
-        args
-            Command line arguments to extract data from.
-        run_dir
-            Path to directory of run to extract data from.
-        fallbacks
-            Keyword arguments of fallbacks to use if arguments are not provided.
-        """
-
-        run_dir = run_dir.resolve()
-        fallbacks["run_name"] = run_dir.stem
-
-        arg_parseable: ArgParseable = super()
-        return arg_parseable.from_args(
-            args,
-            **fallbacks,
-            current_attempt_index=cls.calculate_next_attempt_index(
-                cls.construct_attempts_dir(args.run_dir)
-            ),
-        )
-
-    @classmethod
-    def from_input(
-            cls,
-            args: argparse.Namespace,
-            input_path: Path,
-            scratch_dir: Path,
-            project_name: str,
-            **fallbacks: Any,
-    ):
-        """Create instance populated using data from an input path.
-
-        Parameters
-        ----------
-        args
-            Command line arguments to extract data from.
-        input_path
-            Path to input to use for run creation.
-        scratch_dir
-            Root directory of scratch file system.
-        fallbacks
-            Keyword arguments of fallbacks to use if arguments are not provided.
-        """
-
-        runs_root_dir = cls.construct_runs_root_dir(scratch_dir, project_name)
-        args.run_name = cls.generate_run_name(
-            runs_root_dir,
-            input_path,
-            getattr(args, "run_name", None),
-        )
-        fallbacks["run_dir"] = runs_root_dir / args.run_name
-
-        arg_parseable: ArgParseable = super()
-        return arg_parseable.from_args(
-            args,
-            **fallbacks,
-            current_attempt_index=1,
-        )
 
     @staticmethod
     def generate_run_name(
@@ -926,8 +701,236 @@ class Paths(ArgParseable, JsonSerializable):
 
         return run_name
 
-    @staticmethod
-    def calculate_next_attempt_index(attempts_dir: Path) -> int:
+    @classmethod
+    def add_arguments(
+            cls,
+            parser: argparse.ArgumentParser,
+            group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
+    ) -> None:
+        # TODO: Test that mutually exclusive group works
+        input_or_run_group = group.add_mutually_exclusive_group(required=True)
+        add_argument_to_parser(
+            parser,
+            input_or_run_group,
+            prefix,
+            "-i", "--input-path",
+            dest="input_path",
+            help="Path to input(s). "
+                 "See README.md for explanation of valid inputs.",
+            type=Path,
+        )
+        add_argument_to_parser(
+            parser,
+            input_or_run_group,
+            prefix,
+            "-r", "--run-dir",
+            dest="run_dir",
+            help="Path to directory where previous run was created. "
+                 "Allows performing multiple attempts for one input dataset.",
+            type=Path,
+        )
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--run-name",
+            dest="run_name",
+            help="(Optional) Custom name to use for new run. "
+                 "When not supplied, infers name from input. "
+                 "Only valid when '--input-path' is supplied.",
+            type=str,
+        )
+
+    @classmethod
+    def from_previous_run_dir(
+            cls,
+            args: argparse.Namespace,
+            run_dir: Path,
+            **fallbacks: Any
+    ):
+        """Create instance populated using data from a previous run.
+
+        Parameters
+        ----------
+        args
+            Command line arguments to extract data from.
+        run_dir
+            Path to directory of run to extract data from.
+        fallbacks
+            Keyword arguments of fallbacks to use if arguments are not provided.
+        """
+
+        run_dir = run_dir.resolve()
+        fallbacks["run_name"] = run_dir.stem
+
+        arg_parseable: ArgParseable = super()
+        return arg_parseable.from_args(
+            args,
+            **fallbacks,
+        )
+
+    @classmethod
+    def from_input(
+            cls,
+            args: argparse.Namespace,
+            input_path: Path,
+            runs_root_dir: Path,
+            **fallbacks: Any,
+    ):
+        """Create instance populated using data from an input path.
+
+        Parameters
+        ----------
+        args
+            Command line arguments to extract data from.
+        input_path
+            Path to input to use for run creation.
+        runs_root_dir
+            Root directory where data for runs are stored.
+        fallbacks
+            Keyword arguments of fallbacks to use if arguments are not provided.
+        """
+
+        run_name = cls.generate_run_name(
+            runs_root_dir,
+            input_path,
+            getattr(args, "run_name", None),
+        )
+        args.run_name = run_name
+        fallbacks["run_name"] = run_name
+        fallbacks["run_dir"] = runs_root_dir / run_name
+
+        arg_parseable: ArgParseable = super()
+        return arg_parseable.from_args(
+            args,
+            **fallbacks,
+        )
+
+    @classmethod
+    def from_custom_args(
+            cls,
+            args: argparse.Namespace,
+            runs_root_dir: Path,
+            **fallbacks: Any,
+    ):
+        run_dir: Path | None = getattr(args, "run_dir", None)
+        input_path: Path | None = getattr(args, "input_path", None)
+
+        if (run_dir is None) == (input_path is None):
+            raise argparse.ArgumentError(
+                None,
+                "Invalid command line arguments. "
+                "Must supply exactly one of '--run-dir' or '--input-path'."
+            )
+
+        if run_dir is not None:
+            if args.run_name:
+                raise argparse.ArgumentError(
+                    None,
+                    "Invalid command line arguments. "
+                    "Cannot use '--run-name' when '--run-dir' is supplied."
+                )
+            if not run_dir.is_dir():
+                raise argparse.ArgumentError(
+                    None,
+                    "Path passed with '--run-dir' must be a path to a "
+                    "run that was already created. "
+                    "Use '--input-path' to create run."
+                )
+            return cls.from_previous_run_dir(args, run_dir, **fallbacks)
+
+        if input_path is not None:
+            if not args.scratch_dir:
+                raise argparse.ArgumentError(
+                    None,
+                    "Invalid command line arguments. "
+                    f"Could not find '{SCRATCH_ENV_VAR}' in environment. "
+                    "Must provide '--scratch-dir' when using '--input-path'."
+                )
+
+            return cls.from_input(args, input_path, runs_root_dir, **fallbacks)
+
+        raise ValueError(
+            "Unexpected values for command line arguments. "
+            f"'run-dir': {run_dir}, 'input-path': {input_path}."
+        )
+
+
+@dataclass(frozen=True)
+class AttemptPaths:
+    """Paths for a run attempt.
+
+    Attributes
+    ----------
+    attempt_index
+        1-based index of the current attempt.
+    attempt_dir
+        Directory of current attempt.
+    """
+
+    attempt_index: int
+    attempt_dir: Path
+
+    ATTEMPT_DIR_PREFIX = "attempt_"
+
+    @property
+    def logs_dir(self) -> Path:
+        """Directory where log files will be written to for this attempt."""
+        return self.current_attempt_dir / "logs"
+
+    @property
+    def login_background_log_file(self) -> Path:
+        """Log file where background logging will be written to."""
+        return self.logs_dir / f"{self.project_name}-login.log"
+
+    @property
+    def compute_log_file(self) -> Path:
+        """Log file where compute logging will be written to."""
+        return self.logs_dir / f"{self.project_name}-compute-%A_%a.log"
+
+    @property
+    def array_job_data_dir(self) -> Path:
+        """Directory of array job data for the current attempt."""
+        return self.current_attempt_dir / "array_job_data"
+
+    @property
+    def params_dir(self) -> Path:
+        """Directory where parameter for the current attempt will be saved."""
+        return self.current_attempt_dir / "params"
+
+    @property
+    def paths_json(self) -> Path:
+        """JSON file to write path data for the current attempt to."""
+        return self.params_dir / self.PATHS_JSON_NAME
+
+    @property
+    def slurm_params_json(self) -> Path:
+        """JSON file to write slurm parameters for the current attempt to."""
+        return self.params_dir / self.SLURM_PARAMS_JSON_NAME
+
+    def get_job_array_job_data_dir(self, job: type[SlurmJob]) -> Path:
+        return self.array_job_data_dir / job.job_name()
+
+    def get_job_log_file_path(self, job: type[SlurmJob]) -> Path:
+        match job.job_type():
+            case SlurmJobType.ARRAY:
+                return self.logs_dir / f"{job.job_name}-%A_%a.log.log"
+            case SlurmJobType.SINGLE:
+                return self.logs_dir / f"{job.job_name}.log"
+            case _:
+                raise NotImplementedError(
+                    f"Unsupported slurm job type: '{job.job_type()}'."
+                )
+
+    def initialize_attempt_dir(self) -> None:
+        """Initialize current attempt directory."""
+
+        self.attempt_dir.mkdir(parents=True)
+        self.logs_dir.mkdir(parents=True)
+
+    @classmethod
+    def calculate_next_attempt_index(cls, attempts_dir: Path) -> int:
         """Calculate the next attempt index based on the names of directories
         already found in `attempts_dir`.
 
@@ -943,10 +946,98 @@ class Paths(ArgParseable, JsonSerializable):
         """
 
         return max([
-            int(d.stem.removeprefix(Paths.ATTEMPT_DIR_PREFIX))
+            int(d.stem.removeprefix(cls.ATTEMPT_DIR_PREFIX))
             for d in attempts_dir.iterdir()
-            if d.is_dir() and d.stem.startswith(Paths.ATTEMPT_DIR_PREFIX)
+            if d.is_dir() and d.stem.startswith(cls.ATTEMPT_DIR_PREFIX)
         ], default=0) + 1
+
+    @classmethod
+    def from_next_attempt_dir(cls, attempts_dir: Path) -> Self:
+        attempt_index = cls.calculate_next_attempt_index(attempts_dir)
+        attempt_dir_name = f"{cls.ATTEMPT_DIR_PREFIX}{attempt_index}"
+        return cls(
+            attempt_index=attempt_index,
+            attempt_dir=attempts_dir / attempt_dir_name,
+        )
+
+
+@dataclass(frozen=True)
+class Paths(ArgParseable, JsonSerializable):
+    """Paths used in a run.
+
+    Attributes
+    ----------
+    project_paths
+        Paths for a project.
+    run_paths
+        Paths for a run.
+    attempt_paths
+        Paths for an attempt of a run.
+    """
+
+    project_paths: ProjectPaths
+    run_paths: RunPaths
+    attempt_paths: AttemptPaths
+
+    def initialize_run(self, input_path: Path) -> None:
+        """Perform run file structure initialization.
+
+        Built-in run initialization includes:
+            - Run directory creation
+            - Attempt directory creation
+            - Input directory creation
+            - Output directory creation
+
+        Parameters
+        ----------
+        input_path
+            Path to input file/directory to initialize.
+        """
+
+        self.run_paths.initialize_run_dir()
+        self.run_paths.initialize_input_dir(input_path)
+        self.run_paths.initialize_output_dir()
+        self.attempt_paths.initialize_attempt_dir()
+
+        logger.info(
+            f"Performing attempt {self.current_attempt_index} of run "
+            f"found at '{self.run_dir}'."
+        )
+
+    def initialize_params_dirs(
+            self,
+            param_to_run_json_path: dict[JsonSerializable, Path],
+            param_to_attempt_json_path: dict[JsonSerializable, Path],
+    ) -> None:
+        """Write param JSON files."""
+
+        if self.current_attempt_index == 1:
+            self.run_params_dir.mkdir(parents=True, exist_ok=True)
+            for param, json_path in param_to_run_json_path.items():
+                param.to_json(json_path)
+
+        self.attempt_params_dir.mkdir(parents=True, exist_ok=True)
+        for param, json_path in param_to_attempt_json_path.items():
+            param.to_json(json_path)
+
+    def write_missing_results_array_job_data(
+            self,
+            batch_size: int
+    ) -> list[Path]:
+        """Write array job data for current attempt based on inputs that are
+        still missing an associated output file.
+
+        Parameters
+        ----------
+        batch_size
+            Number of input files to batch together into each array job.
+        """
+
+        return ArrayJobData.write_array_job_data(
+            self.attempt_array_job_data_dir,
+            self.get_missing_output_input_files(file_suffix=".tsv"),
+            batch_size,
+        )
 
     @staticmethod
     def compress_and_delete_dir(
@@ -989,94 +1080,19 @@ class Paths(ArgParseable, JsonSerializable):
             group: argparse._ArgumentGroup | None = None,
             prefix: str | None = None,
     ) -> None:
-        group = group if group is not None else parser.add_argument_group(
-            "Run Parameters",
-            "Parameters used for initializing run."
-        )
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "-r", "--run-dir",
-            dest="run_dir",
-            help="Path to directory where previous run was created. "
-                 "Allows performing multiple attempts for one input dataset.",
-            type=Path,
-        )
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "--project-dir",
-            dest="project_dir",
-            help="(Optional) Path to project directory. "
-                 "When not supplied, inferred from relative file structure.",
-            type=Path,
-        )
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "--run-name",
-            dest="run_name",
-            help="(Optional) Custom name of run. "
-                 "When not supplied, infers name from input. "
-                 "Ignored when '--run-dir' is supplied.",
-            type=str,
-        )
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "--scratch-dir",
-            dest="scratch_dir",
-            help="(Optional) Path to scratch directory on cluster. "
-                 "When not supplied, retrieved from environment.",
-            type=Path,
-            default=os.getenv(SCRATCH_ENV_VAR),
-        )
+        ProjectPaths.add_arguments(parser, group, prefix)
+        RunPaths.add_arguments(parser, group, prefix)
 
     @classmethod
     def from_args(cls, args: argparse.Namespace, **fallbacks: Any):
-        run_dir: Path | None = getattr(args, "run_dir", None)
-        input_path: Path | None = getattr(args, "input_path", None)
-
-        # TODO: Look into cleaner way to handle argument dependencies
-        if (run_dir is None) == (input_path is None):
-            raise argparse.ArgumentError(
-                None,
-                "Invalid command line arguments. "
-                "Must supply exactly one of '--run-dir' or '--input-path'."
-            )
-
-        if run_dir is not None:
-            if args.run_name:
-                raise argparse.ArgumentError(
-                    None,
-                    "Invalid command line arguments. "
-                    "Cannot use '--run-name' when '--run-dir' is supplied."
-                )
-            if not run_dir.is_dir():
-                raise argparse.ArgumentError(
-                    None,
-                    "Path passed with '--run-dir' must be a path to a run that "
-                    "was already created. Use '--input-path' to create run."
-                )
-            return cls.from_previous_run_dir(args, run_dir, **fallbacks)
-        elif input_path is not None:
-            if not args.scratch_dir:
-                raise argparse.ArgumentError(
-                    None,
-                    "Invalid command line arguments. "
-                    f"Could not find '{SCRATCH_ENV_VAR}' in environment. "
-                    "Must provide '--scratch-dir' when using '--input-path'."
-                )
-            return ArgParseable.from_args(args, **fallbacks)
-        else:
-            raise ValueError(
-                "Unexpected values for command line arguments. "
-                f"'run-dir': {run_dir}, 'input-path': {input_path}."
-            )
+        project_paths = ProjectPaths.from_args(args, **fallbacks)
+        run_paths = RunPaths.from_custom_args(
+            args,
+            project_paths.runs_root_dir,
+            **fallbacks
+        )
+        attempt_paths = AttemptPaths.from_next_attempt_dir(run_paths.attempts_dir)
+        return cls(project_paths, run_paths, attempt_paths)
 
 
 @dataclass(frozen=True)

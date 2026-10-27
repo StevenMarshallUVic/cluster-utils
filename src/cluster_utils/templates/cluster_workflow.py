@@ -2,27 +2,32 @@ from cluster_utils.data import SlurmJob
 from cluster_utils.workflow import FullWorkflow, LoginWorkflow, ComputeWorkflow
 
 class Login(LoginWorkflow):
-
-    @property
-    def jobs(self) -> list[type[SlurmJob]]:
+    @staticmethod
+    def jobs() -> list[type[SlurmJob]]:
         return []
 
-    def pre_initialize(self) -> bool:
+    @staticmethod
+    def pre_initialize() -> bool:
         return True
 
-    def post_initialize(self) -> bool:
+    @staticmethod
+    def post_initialize() -> bool:
         return True
 
-    def pre_job_submission(self) -> bool:
+    @staticmethod
+    def pre_job_submission() -> bool:
         return True
 
-    def post_job_submission(self) -> bool:
+    @staticmethod
+    def post_job_submission() -> bool:
         return True
 
-    def pre_post_process(self) -> bool:
+    @staticmethod
+    def pre_post_process() -> bool:
         return True
 
-    def post_post_process(self) -> bool:
+    @staticmethod
+    def post_post_process() -> bool:
         return True
 
 

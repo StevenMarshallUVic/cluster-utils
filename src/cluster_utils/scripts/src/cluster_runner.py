@@ -141,7 +141,7 @@ class CustomComputeRunner(ComputeRunner):
         paths = Paths.from_json(array_job_params.paths_json)
         job_data = ArrayJobData.from_json(
             ArrayJobData.build_json_path(
-                paths.attempt_array_job_data_dir,
+                paths.array_job_data_dir,
                 array_job_params.array_job_index,
             )
         )
