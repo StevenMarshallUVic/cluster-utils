@@ -443,11 +443,13 @@ class SlurmParams(ArgParseable, JsonSerializable):
 
 
 @dataclass(frozen=True)
-class Paths(ArgParseable, JsonSerializable, ABC):
+class Paths(ArgParseable, JsonSerializable):
     """Base class for storing paths used in a run.
 
     Attributes
     ----------
+    project_name
+        Name of the project.
     project_dir
         Path to root directory of project.
     scratch_dir
@@ -460,6 +462,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         1-based index of the current attempt.
     """
 
+    project_name: str
     project_dir: Path
     scratch_dir: Path
     run_dir: Path
@@ -508,7 +511,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
     def scratch_project_dir(self) -> Path:
         """Root directory where project files will be saved on the scratch file
         system."""
-        return self.scratch_dir / self.project_name()
+        return self.scratch_dir / self.project_name
 
     @property
     def runs_root_dir(self) -> Path:
@@ -534,12 +537,12 @@ class Paths(ArgParseable, JsonSerializable, ABC):
     @property
     def login_background_log_file(self) -> Path:
         """Log file where background logging will be written to."""
-        return self.logs_dir / f"{self.project_name()}-login.log"
+        return self.logs_dir / f"{self.project_name}-login.log"
 
     @property
     def compute_log_file(self) -> Path:
         """Log file where compute logging will be written to."""
-        return self.logs_dir / f"{self.project_name()}-compute-%A_%a.log"
+        return self.logs_dir / f"{self.project_name}-compute-%A_%a.log"
 
     @property
     def attempt_array_job_data_dir(self) -> Path:
@@ -782,7 +785,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
 
     # TODO: Replace hacks with proper implementation
     @classmethod
-    def construct_runs_root_dir(cls, scratch_dir: Path) -> Path:
+    def construct_runs_root_dir(cls, scratch_dir: Path, project_name: str) -> Path:
         """Hacky way to bypass creating instance to get access to paths.
 
         Parameters
@@ -796,7 +799,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             Path to root directory where runs are saved.
         """
 
-        return scratch_dir / cls.project_name() / "runs"
+        return scratch_dir / project_name / "runs"
 
     @classmethod
     def construct_attempts_dir(cls, run_dir: Path) -> Path:
@@ -852,6 +855,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             args: argparse.Namespace,
             input_path: Path,
             scratch_dir: Path,
+            project_name: str,
             **fallbacks: Any,
     ):
         """Create instance populated using data from an input path.
@@ -868,7 +872,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             Keyword arguments of fallbacks to use if arguments are not provided.
         """
 
-        runs_root_dir = cls.construct_runs_root_dir(scratch_dir)
+        runs_root_dir = cls.construct_runs_root_dir(scratch_dir, project_name)
         args.run_name = cls.generate_run_name(
             runs_root_dir,
             input_path,
@@ -1043,6 +1047,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         run_dir: Path | None = getattr(args, "run_dir", None)
         input_path: Path | None = getattr(args, "input_path", None)
 
+        # TODO: Look into cleaner way to handle argument dependencies
         if (run_dir is None) == (input_path is None):
             raise argparse.ArgumentError(
                 None,
@@ -1072,12 +1077,7 @@ class Paths(ArgParseable, JsonSerializable, ABC):
                     f"Could not find '{SCRATCH_ENV_VAR}' in environment. "
                     "Must provide '--scratch-dir' when using '--input-path'."
                 )
-            return cls.from_input(
-                args,
-                input_path,
-                args.scratch_dir,
-                **fallbacks
-            )
+            return cls.from_args(args, **fallbacks)
         else:
             raise ValueError(
                 "Unexpected values for command line arguments. "

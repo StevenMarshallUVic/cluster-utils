@@ -33,6 +33,10 @@ class Compute(ComputeWorkflow):
 # TODO: Remove implementation after testing
 class CustomFullWorkflow(FullWorkflow):
     @property
+    def project_name(self) -> str:
+        return "test_project"
+
+    @property
     def login_workflow(self) -> type[LoginWorkflow]:
         return Login
 

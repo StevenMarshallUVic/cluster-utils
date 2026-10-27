@@ -48,6 +48,11 @@ class ComputeWorkflow(ABC):
 class FullWorkflow(ABC):
     @property
     @abstractmethod
+    def project_name(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
     def login_workflow(self) -> type[LoginWorkflow]:
         pass
 
