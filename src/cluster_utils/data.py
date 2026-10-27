@@ -1071,7 +1071,7 @@ class Paths(ArgParseable, JsonSerializable):
                     f"Could not find '{SCRATCH_ENV_VAR}' in environment. "
                     "Must provide '--scratch-dir' when using '--input-path'."
                 )
-            return cls.from_args(args, **fallbacks)
+            return super.from_args(args, **fallbacks)
         else:
             raise ValueError(
                 "Unexpected values for command line arguments. "
