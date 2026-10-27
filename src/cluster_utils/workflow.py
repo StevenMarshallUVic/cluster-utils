@@ -3,6 +3,8 @@
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 
+from cluster_utils.data import SlurmJob
+
 
 @dataclass
 class LoginWorkflow(ABC):

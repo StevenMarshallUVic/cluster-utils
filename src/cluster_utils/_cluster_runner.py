@@ -466,7 +466,7 @@ def main():
     workflow_class = _find_user_workflow_class(
         config.global_config.get_workflow_script_path(paths.project_dir)
     )
-    _ClusterRunners.from_args(workflow_class=workflow_class).run_stage()
+    _ClusterRunners.from_args(_workflow_class=workflow_class).run_stage()
 
 
 if __name__ == "__main__":

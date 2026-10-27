@@ -1,7 +1,6 @@
 """Classes for storing data used in jobs run on a cluster."""
 
 import argparse
-import logging
 import os
 import shutil
 from abc import ABC, abstractmethod
@@ -14,7 +13,6 @@ from typing import Any
 
 from cluster_utils import init_logger
 from cluster_utils.utils import ArgParseable, JsonSerializable
-from cluster_utils.workflow import SlurmJob
 
 logger = init_logger(Path(__file__).name)
 
