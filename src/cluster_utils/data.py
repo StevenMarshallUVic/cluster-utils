@@ -9,9 +9,7 @@ from datetime import datetime
 from enum import auto, StrEnum
 from math import ceil
 from pathlib import Path
-from typing import Any, ClassVar
-
-from pygments.styles import default
+from typing import Any, ClassVar, cast
 
 from cluster_utils import init_logger, get_project_dir
 from cluster_utils.utils import ArgParseable, JsonSerializable
@@ -19,6 +17,9 @@ from cluster_utils.utils import ArgParseable, JsonSerializable
 logger = init_logger(Path(__file__).name)
 
 SCRATCH_ENV_VAR = "SCRATCH"
+
+PATHS_JSON_NAME = "paths.json"
+SLURM_PARAMS_JSON_NAME = "slurm_params.json"
 
 
 class SlurmJobType(StrEnum):
@@ -288,7 +289,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
 
     def build_array_job_command(
             self,
-            account: str,
+            paths: Paths,
             wrap_args: list[str],
             dependencies: SlurmDependencies | None = None,
     ) -> list[str] | None:
@@ -296,18 +297,17 @@ class SlurmParams(ArgParseable, JsonSerializable):
         # TODO: Add docstring (also copy to runner method)
 
         # TODO: Figure out how to pass paths
-        paths: Paths
         max_array_index = ArrayJobData.find_greatest_array_job_index(
-            paths.get_job_array_job_data_dir(job),
+            paths.attempt_paths.get_job_array_job_data_dir(self.job),
         )
         if max_array_index is None:
             return None
 
-        log_file = paths.get_job_log_file_path(job)
+        log_file = paths.get_job_log_file_path(self.job)
         args = [
             "sbatch",
-            f"--job-name={job.job_name}",
-            f"--account={account}",
+            f"--job-name={self.job.job_name()}",
+            f"--account={paths.project_paths.account}",
             f"--cpus-per-task={self.cpus_per_task}",
             f"--mem={self.memory}",
             f"--time={self.time}",
@@ -326,18 +326,14 @@ class SlurmParams(ArgParseable, JsonSerializable):
         return args
 
     @classmethod
-    def from_args_job_fallbacks(cls, args: argparse.Namespace):
-        """Create instance from command line arguments, falling back to
-        defaults defined in the given slurm job for flags not provided.
-        """
-
-        return cls.from_args(
-            args,
-            batch_size=cls.job.default_batch_size(),
-            memory=cls.job.default_memory(),
-            time=cls.job.default_time(),
-            cpus_per_task=cls.job.default_cpus_per_task(),
-            gpus=cls.job.gpus(),
+    def create_subclass_from_job(cls, job: type[SlurmJob]) -> type[SlurmParams]:
+        return cast(
+            type[SlurmParams],
+            type(
+                job.job_name().title(),
+                (cls,),
+                {"job": job}
+            )
         )
 
     @classmethod
@@ -351,7 +347,6 @@ class SlurmParams(ArgParseable, JsonSerializable):
             "Slurm Parameters",
             "Parameters used for Slurm job submission."
         )
-
         add_argument_to_parser(
             parser,
             group,
@@ -393,6 +388,21 @@ class SlurmParams(ArgParseable, JsonSerializable):
             help="(Optional) Amount of time to allocate for each slurm job. "
                  "When not supplied, uses default time.",
             type=str,
+        )
+
+    @classmethod
+    def from_args(
+            cls,
+            args: argparse.Namespace,
+            **fallbacks: Any,
+    ):
+        return super().from_args(
+            args,
+            batch_size=cls.job.default_batch_size(),
+            memory=cls.job.default_memory(),
+            time=cls.job.default_time(),
+            cpus_per_task=cls.job.default_cpus_per_task(),
+            gpus=cls.job.gpus(),
         )
 
 
@@ -562,9 +572,6 @@ class RunPaths(ArgParseable, JsonSerializable):
     run_dir: Path
     input_path: Path | None = None
 
-    PATHS_JSON_NAME = "paths.json"
-    SLURM_PARAMS_JSON_NAME = "slurm_params.json"
-
     @property
     def input_dir(self) -> Path:
         """Directory containing input files for the current run."""
@@ -588,12 +595,12 @@ class RunPaths(ArgParseable, JsonSerializable):
     @property
     def paths_json(self) -> Path:
         """JSON file to write path data for the current run to."""
-        return self.params_dir / self.PATHS_JSON_NAME
+        return self.params_dir / PATHS_JSON_NAME
 
     @property
     def slurm_params_json(self) -> Path:
         """JSON file to write slurm parameters for the current run to."""
-        return self.params_dir / self.SLURM_PARAMS_JSON_NAME
+        return self.params_dir / SLURM_PARAMS_JSON_NAME
 
     @property
     def attempts_dir(self) -> Path:
@@ -903,7 +910,7 @@ class AttemptPaths:
     @property
     def logs_dir(self) -> Path:
         """Directory where log files will be written to for this attempt."""
-        return self.current_attempt_dir / "logs"
+        return self.attempt_dir / "logs"
 
     @property
     def login_background_log_file(self) -> Path:
@@ -918,22 +925,22 @@ class AttemptPaths:
     @property
     def array_job_data_dir(self) -> Path:
         """Directory of array job data for the current attempt."""
-        return self.current_attempt_dir / "array_job_data"
+        return self.attempt_dir / "array_job_data"
 
     @property
     def params_dir(self) -> Path:
         """Directory where parameter for the current attempt will be saved."""
-        return self.current_attempt_dir / "params"
+        return self.attempt_dir / "params"
 
     @property
     def paths_json(self) -> Path:
         """JSON file to write path data for the current attempt to."""
-        return self.params_dir / self.PATHS_JSON_NAME
+        return self.params_dir / PATHS_JSON_NAME
 
     @property
     def slurm_params_json(self) -> Path:
         """JSON file to write slurm parameters for the current attempt to."""
-        return self.params_dir / self.SLURM_PARAMS_JSON_NAME
+        return self.params_dir / SLURM_PARAMS_JSON_NAME
 
     def get_job_array_job_data_dir(self, job: type[SlurmJob]) -> Path:
         return self.array_job_data_dir / job.job_name()

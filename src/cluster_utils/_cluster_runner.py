@@ -21,29 +21,13 @@ from cluster_utils.workflow import FullWorkflow, LoginWorkflow, ComputeWorkflow,
 logger = init_logger(Path(__file__).name)
 
 
-class _LoginParams(ArgParseable):
-    account: str
-
-    @classmethod
-    def add_arguments(
-            cls,
-            parser: argparse.ArgumentParser,
-            group: argparse._ArgumentGroup | None = None,
-            prefix: str | None = None,
-    ) -> None:
-        group = group if group is not None else parser.add_argument_group(
-            "Login Parameters",
-            "Parameters used for login portion of Slurm job."
-        )
-
-
 @dataclass(frozen=True)
 class _LoginRunner(ArgParser):
     """Abstract class that handles running the portion of a run that occurs
     in the background on a login node."""
 
-    login_params: _LoginParams
     paths: Paths
+    job_name_to_slurm_params: dict[str, SlurmParams]
 
     workflow: ClassVar[type[FullWorkflow]]
 
@@ -58,14 +42,11 @@ class _LoginRunner(ArgParser):
 
     @staticmethod
     def static_argument_sources() -> list[type[ArgParseable]]:
-        static_argument_sources: list[type[ArgParseable]] = [_LoginParams, Paths]
+        static_argument_sources: list[type[ArgParseable]] = [Paths]
         for job in _LoginRunner.workflow().login_workflow.jobs():
-            slurm_params_type: type[ArgParseable] = type(
-                job.job_name().title(),
-                (SlurmParams,),
-                {"job": job}
+            static_argument_sources.append(
+                SlurmParams.create_subclass_from_job(job)
             )
-            static_argument_sources.append(slurm_params_type)
         return static_argument_sources
 
     def run(self) -> bool:
@@ -179,30 +160,28 @@ class _LoginRunner(ArgParser):
         wrap_args = [
             subprocess.list2cmdline([arg]) for arg in [
                 # TODO: Confirm this works
-                f"cd {self.paths.project_dir} && cluster-run",
-                "--paths-json",  self.paths.attempt_paths_json,
-                "--project-dir",  self.paths.project_dir,
-                "--python-module-path", self.paths.runner_module_path,
+                f"cd {self.paths.project_paths.project_dir} && cluster-run",
+                "--paths-json",  self.paths.attempt_paths.paths_json,
+                "--project-dir",  self.paths.project_paths.project_dir,
+                # "--python-module-path", self.paths.runner_module_path,
                 "--runner-stage",  _RunnerStage.COMPUTE.name,
             ] + (extra_job_wrap_args if extra_job_wrap_args is not None else [])
             + (["--debug"] if logger.isEnabledFor(logging.DEBUG) else [])
         ]
 
-        # TODO: Figure out better system for initializing
-        args = SlurmParams.from_args_job_fallbacks().build_array_job_command(
-            job,
-            self.login_params.account,
+        args = self.job_name_to_slurm_params[job.job_name()].build_array_job_command(
+            self.paths,
             wrap_args,
             dependencies,
         )
         if args is None:
             logger.info(
-                f"No jobs to run for {job.job_name}, "
+                f"No jobs to run for {job.job_name()}, "
                 f"skipping array job submission!"
             )
             return True
 
-        logger.info(f"Waiting for {job.job_name} slurm array job to complete...")
+        logger.info(f"Waiting for {job.job_name()} slurm array job to complete...")
         success = run_subprocess_command(args, logger=logger)
         # success = run_subprocess_command(
         #     args=["bash"] + wrap_args,
@@ -210,9 +189,9 @@ class _LoginRunner(ArgParser):
         # )
 
         if success:
-            logger.info(f"{job.job_name} slurm jobs completed!")
+            logger.info(f"{job.job_name()} slurm jobs completed!")
         else:
-            logger.warning(f"One or more {job.job_name} slurm jobs failed.")
+            logger.warning(f"One or more {job.job_name()} slurm jobs failed.")
         return success
 
     def submit_single_job(self, job: SlurmJob) -> bool:
@@ -235,9 +214,17 @@ class _LoginRunner(ArgParser):
         if len(kwargs) > 0:
             raise ValueError(f"Unexpected keyword arguments: {kwargs}.")
 
+        job_name_to_inst = {}
+        for job in cls.workflow().login_workflow.jobs():
+            slurm_params = SlurmParams.create_subclass_from_job(job)
+            if job.job_name() in job_name_to_inst:
+                raise KeyError("Multiple SlurmJobs with same job_name.")
+
+            job_name_to_inst[job.job_name()] = slurm_params.from_args(args)
+
         return cls(
-            login_params=_LoginParams.from_args(args),
             paths=Paths.from_custom_args(args, cls.workflow().project_name),
+            job_name_to_slurm_params=job_name_to_inst,
         )
 
 
