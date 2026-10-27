@@ -8,13 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
-from cluster_utils import get_environment_default_log_level
+from cluster_utils import get_environment_default_log_level, init_logger
 from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams
 from cluster_utils.runners import ClusterRunners, ComputeRunner, LoginRunner
 from cluster_utils.utils import ArgParseable
 
-# TODO: Create global logger creation function
-logger = logging.getLogger(Path(__file__).stem)
+logger = init_logger(Path(__file__).stem)
 
 
 @dataclass(frozen=True)

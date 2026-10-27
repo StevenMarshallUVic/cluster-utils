@@ -8,7 +8,6 @@ PACKAGE_NAME = "cam-cluster-utils"
 # TODO: Replace with non-branch once merged
 PACKAGE_URL = "git+https://github.com/StevenMarshallUVic/cluster-utils.git@automated"
 
-logger = logging.getLogger(PACKAGE_NAME)
 root_logger = logging.getLogger()
 
 DEV_LOG_LEVEL = logging.DEBUG
@@ -35,17 +34,39 @@ def get_environment_default_log_level() -> int:
     return DEV_LOG_LEVEL if is_dev_environment() else PROD_LOG_LEVEL
 
 
-# Set default logging levels based on whether package is installed
-if is_dev_environment():
-    # This is local development environment, set logging level
-    logging.basicConfig()
-    logger.setLevel(DEV_LOG_LEVEL)
-else:
-    if not root_logger.handlers:
-        if logger.level == logging.NOTSET:
-            logger.setLevel(PROD_LOG_LEVEL)
+def init_logger(
+        name: string,
+        log_level: int = get_environment_default_log_level(),
+) -> logging.Logger:
+    """Create logger based on environment and root logger configuration.
 
-        logging.basicConfig(level=logger.level, force=True)
-    else:
-        if logger.level == logging.NOTSET:
-            logger.setLevel(root_logger.level)
+    Parameters
+    ----------
+    name
+        Name of logger.
+    log_level
+        (Optional) Logging level. Based on `logging` log levels.
+
+    Returns
+    -------
+    logging.Logger
+        Initialized logger.
+    """
+
+    if is_dev_environment():
+        logging.basicConfig(level=log_level, force=True)
+        logger = logging.getLogger(name)
+        logger.setLevel(log_level)
+        return logger
+
+    if not root_logger.handlers:
+        logging.basicConfig(level=log_level, force=True)
+        logger = logging.getLogger(name)
+        logger.setLevel(log_level)
+        return logger
+
+    logger = logging.getLogger(name)
+    if logger.level == logging.NOTSET:
+        logger.setLevel(root_logger.level)
+
+    return logger

@@ -2,8 +2,9 @@
 
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
+from pathlib import Path
 
-from cluster_utils.data import SlurmDependencyType, SlurmJobType
+from cluster_utils.data import SlurmDependencyType, SlurmJobType, Paths
 
 
 @dataclass
@@ -78,6 +79,14 @@ class SlurmJob(ABC):
         """
         return {}
 
+    @property
+    @abstractmethod
+    def require_all_dependencies(self) -> bool:
+        """When true, all dependencies must be satisfied.
+        Otherwise, any dependency may be satisfied.
+        """
+        return True
+
 
 @dataclass
 class LoginWorkflow(ABC):
@@ -101,6 +110,14 @@ class LoginWorkflow(ABC):
 
     @abstractmethod
     def post_job_submission(self) -> bool:
+        return True
+
+    @abstractmethod
+    def pre_post_process(self) -> bool:
+        return True
+
+    @abstractmethod
+    def post_post_process(self) -> bool:
         return True
 
 

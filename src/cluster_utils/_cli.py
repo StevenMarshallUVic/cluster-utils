@@ -13,7 +13,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from cluster_utils import PACKAGE_NAME, get_project_dir
+from cluster_utils import PACKAGE_NAME, get_project_dir, init_logger
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths, SrcPaths
 from cluster_utils._utils import ON_CLUSTER
@@ -23,7 +23,7 @@ from cluster_utils._utils import io, project_init
 if ON_CLUSTER:
     from cluster_utils._utils.lmod import LmodModuleLoader
 
-logger = logging.getLogger(__name__)
+logger = init_logger(__name__)
 
 
 def initialize_project(arguments: Iterable[str] | None = None) -> None:

@@ -2,30 +2,58 @@ import argparse
 import logging
 import shutil
 import subprocess
-from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Collection
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
-from cluster_utils import get_environment_default_log_level
+from cluster_utils import get_environment_default_log_level, init_logger
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths
-from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams
+from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams, \
+    SlurmJobType, SlurmDependencies, SlurmDependency, add_argument_to_parser, \
+    ArrayJobInstanceParams
 from cluster_utils.utils import EnumAction, _RunnerStage, \
-    run_subprocess_command
+    run_subprocess_command, ArgParseable
 from cluster_utils.workflow_utils import find_subclasses_in_script, ArgParser
-from cluster_utils.workflow import FullWorkflow
+from cluster_utils.workflow import FullWorkflow, LoginWorkflow, ComputeWorkflow, \
+    SlurmJob
 
-# TODO: Move logger creation to centralized location
-logger = logging.getLogger(Path(__file__).name)
+logger = init_logger(Path(__file__).name)
+
+
+class _LoginParams(ArgParseable):
+    account: str
+
+    @classmethod
+    def add_arguments(
+            cls,
+            parser: argparse.ArgumentParser,
+            group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
+    ) -> None:
+        group = group if group is not None else parser.add_argument_group(
+            "Login Parameters",
+            "Parameters used for login portion of Slurm job."
+        )
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--account",
+            help=f"(Optional) Digital Research Alliance of Canada account to "
+                 f"charge usage to. "
+                 f"When not supplied, attempts to find value in account file.",
+            type=str,
+        )
 
 
 @dataclass(frozen=True)
-class _LoginRunner(ArgParser, ABC):
+class _LoginRunner(ArgParser):
     """Abstract class that handles running the portion of a run that occurs
     in the background on a login node."""
 
+    login_params: _LoginParams
     paths: Paths
     inputs: Input
 
@@ -38,7 +66,11 @@ class _LoginRunner(ArgParser, ABC):
         return ("Perform logic on login node of "
                 "Digital Research Alliance of Canada cluster.")
 
-    def run(self) -> bool:
+    @staticmethod
+    def argument_sources() -> list[type[ArgParseable]]:
+        return [_LoginParams, Paths, Input]
+
+    def run(self, workflow: LoginWorkflow) -> bool:
         """Perform login portion of run.
 
         Returns
@@ -46,90 +78,108 @@ class _LoginRunner(ArgParser, ABC):
         Whether login tasks were run successfully.
         """
 
+        if not workflow.pre_initialize():
+            return False
         if not self.initialize():
             return False
+        if not workflow.post_initialize():
+            return False
 
-        if not self.submit_compute_jobs():
+        if not workflow.pre_job_submission():
+            return False
+        if not self.submit_compute_jobs(workflow.jobs):
             logger.warning(
                 "One or more compute jobs failed, skipping post processing."
             )
             return False
+        if not workflow.post_job_submission():
+            return False
 
-        return self.post_process()
+        if not workflow.pre_post_process():
+            return False
+        if not self.post_process():
+            return False
+        if not workflow.post_post_process():
+            return False
+
+        return True
 
     def initialize(self) -> bool:
-        """Virtual method for initializing a run.
+        """Perform general initialization for a run.
 
         Returns
         -------
         Whether initialization was successful.
         """
+
+        # TODO: Move run initialization logic from Paths class to here
         return True
 
-    @abstractmethod
-    def submit_compute_jobs(self) -> bool:
-        """Virtual method for submitting compute jobs.
+    def submit_compute_jobs(self, jobs: Collection[type[SlurmJob]]) -> bool:
+        """Submit user-designed compute jobs.
 
         Returns
         -------
         bool
             Whether compute jobs completed successfully.
         """
-        raise NotImplementedError()
 
-    def _build_array_job_command(
-            self,
-            account: str,
-            job_name: str,
-            array_job_data_dir: Path,
-            log_file: Path,
-            wrap_args: list[str],
-            dependencies: SlurmDependencies | None = None,
-            wait=True,
-    ) -> list[str] | None:
-        """Submit a slurm array job to handle the compute portion of the job."""
-        # TODO: Add docstring (also copy to runner method)
+        if len(jobs) <= 0:
+            logger.info("No jobs to submit!")
+            return True
 
-        max_array_index = ArrayJobData.find_greatest_array_job_index(
-            array_job_data_dir,
-        )
-        if max_array_index is None:
-            return None
+        job_class_to_slurm_id: dict[type[SlurmJob], int] = {}
+        for job_class in jobs:
+            job = job_class()
 
-        args = [
-            "sbatch",
-            f"--job-name={job_name}",
-            f"--account={account}",
-            f"--cpus-per-task={self.cpus_per_task}",
-            f"--mem={self.memory}",
-            f"--time={self.time}",
-            f"--array=0-{max_array_index}",
-            f"--output={log_file}",
-            f"--error={log_file}",
-            f"--wrap={' '.join(wrap_args)}",
-        ]
-        if self.gpus is not None:
-            args.append(f"--gpus={self.gpus}")
-        if dependencies:
-            # TODO: Test that this works
-            args.append(f"--dependency={dependencies.as_flag_value()}")
-        if wait:
-            args.append("--wait")
+            depends: list[SlurmDependency] = []
+            for depend_job_class, depend_type in job.job_dependencies.items():
+                if depend_job_class not in job_class_to_slurm_id:
+                    raise RuntimeError(
+                        f"Trying to submit job '{job.job_name}' "
+                        f"before dependency '{depend_job_class().job_name}'."
+                    )
+                depends.append(SlurmDependency(
+                    depend_type,
+                    tuple([job_class_to_slurm_id[depend_job_class]]),
+                ))
+            dependencies = SlurmDependencies(
+                dependencies=tuple(depends),
+                require_all_dependencies=job.require_all_dependencies,
+            ) if len(depends) > 0 else None
 
-        return args
+            match job.job_type:
+                case SlurmJobType.ARRAY:
+                    if not self.submit_array_job(
+                        job,
+                        dependencies=dependencies,
+                    ):
+                        logger.warning(
+                            "Array job submission failed for '%s'.",
+                            job.job_type,
+                        )
+                        return False
+                case SlurmJobType.SINGLE:
+                    if not self.submit_single_job(job):
+                        logger.warning(
+                            "Single job submission failed for '%s'.",
+                            job.job_type,
+                        )
+                        return False
+                case _:
+                    raise NotImplementedError(
+                        f"Unsupported slurm job type: '{job.job_type}'."
+                    )
+        return True
+
 
     def submit_array_job(
             self,
-            job_name: str,
-            slurm_params: SlurmParams,
-            array_job_data_dir: Path,
-            log_file: Path,
+            job: SlurmJob,
             extra_job_wrap_args: list[str] | None = None,
             dependencies: SlurmDependencies | None = None,
-            wait: bool = True,
     ) -> bool:
         """Submit a slurm array job to handle the compute portion of the job."""
-        # TODO: Find way to remove params that are just passed to `build_array_job_command`.
 
         wrap_args = [
             subprocess.list2cmdline([arg]) for arg in [
@@ -143,22 +193,21 @@ class _LoginRunner(ArgParser, ABC):
             + (["--debug"] if logger.isEnabledFor(logging.DEBUG) else [])
         ]
 
-        args = slurm_params.build_array_job_command(
-            job_name,
-            array_job_data_dir,
-            log_file,
+        # TODO: Figure out better system for initializing
+        args = SlurmParams.from_args_job_fallbacks(job=job).build_array_job_command(
+            job,
+            self.login_params.account,
             wrap_args,
             dependencies,
-            wait,
         )
         if args is None:
             logger.info(
-                f"No jobs to run for {job_name}, "
+                f"No jobs to run for {job.job_name}, "
                 f"skipping array job submission!"
             )
             return True
 
-        logger.info(f"Waiting for {job_name} slurm array job to complete...")
+        logger.info(f"Waiting for {job.job_name} slurm array job to complete...")
         success = run_subprocess_command(args, logger=logger)
         # success = run_subprocess_command(
         #     args=["bash"] + wrap_args,
@@ -166,12 +215,12 @@ class _LoginRunner(ArgParser, ABC):
         # )
 
         if success:
-            logger.info(f"{job_name} slurm jobs completed!")
+            logger.info(f"{job.job_name} slurm jobs completed!")
         else:
-            logger.warning(f"One or more {job_name} slurm jobs failed.")
+            logger.warning(f"One or more {job.job_name} slurm jobs failed.")
         return success
 
-    def submit_single_job(self) -> None:
+    def submit_single_job(self, job: SlurmJob) -> bool:
         """Submit a single slurm job to handle the compute portion of the job.
         """
         raise NotImplementedError()
@@ -186,9 +235,17 @@ class _LoginRunner(ArgParser, ABC):
         """
         return True
 
+    @classmethod
+    def from_custom_args(cls, args: argparse.Namespace) -> Self:
+        return cls(
+            login_params=_LoginParams.from_args(args),
+            paths=Paths.from_args(args),
+            inputs=Input.from_args(args),
+        )
+
 
 @dataclass(frozen=True)
-class _ComputeRunner(ArgParser, ABC):
+class _ComputeRunner(ArgParser):
     """Abstract class that handles running the portion of a run that occurs
     on a cluster's compute node."""
 
@@ -204,6 +261,10 @@ class _ComputeRunner(ArgParser, ABC):
         return ("Perform logic on compute node of "
                 "Digital Research Alliance of Canada cluster.")
 
+    @staticmethod
+    def argument_sources() -> list[type[ArgParseable]]:
+        return [ArrayJobInstanceParams]
+
     @property
     def compute_input_dir(self) -> Path:
         """Path to input directory on the compute node."""
@@ -214,7 +275,7 @@ class _ComputeRunner(ArgParser, ABC):
         """Path to output directory on the compute node."""
         return self.compute_dir / "output"
 
-    def run(self) -> bool:
+    def run(self, workflow: ComputeWorkflow) -> bool:
         """Perform a compute run."""
 
         if not self._initialize_file_structure():
@@ -256,7 +317,6 @@ class _ComputeRunner(ArgParser, ABC):
         """
         return True
 
-    @abstractmethod
     def perform_computations(self) -> bool:
         """Abstract method for performing the compute logic on the compute node.
 
@@ -290,11 +350,27 @@ class _ComputeRunner(ArgParser, ABC):
                             f"({input_index}/{len(input_files)})...")
             func(input_file)
 
+    @classmethod
+    def from_custom_args(cls, args: argparse.Namespace) -> Self:
+        array_job_params = ArrayJobInstanceParams.from_args(args)
+        paths = Paths.from_json(array_job_params.paths_json)
+        job_data = ArrayJobData.from_json(
+            ArrayJobData.build_json_path(
+                paths.attempt_array_job_data_dir,
+                array_job_params.array_job_index,
+            )
+        )
+        return cls(
+            compute_dir=array_job_params.compute_dir,
+            job_data=job_data,
+        )
+
 
 @dataclass(frozen=True)
 class _ClusterRunners:
     """Manager class for orchestrating which stage to run."""
 
+    _workflow_class: type[FullWorkflow]
     _stage: _RunnerStage
 
     def run_stage(self) -> bool:
@@ -305,16 +381,21 @@ class _ClusterRunners:
         Whether stage was run successfully.
         """
 
+        workflow = self._workflow_class()
         match self._stage:
             case _RunnerStage.LOGIN:
-                return _LoginRunner.from_args().run()
+                return _LoginRunner.from_args().run(
+                    workflow.login_workflow(),
+                )
             case _RunnerStage.COMPUTE:
-                return _ComputeRunner.from_args().run()
+                return _ComputeRunner.from_args().run(
+                    workflow.compute_workflow(),
+                )
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 
     @classmethod
-    def from_args(cls):
+    def from_args(cls, **kwargs):
         """Create an instance populated with command line arguments."""
 
         parser = argparse.ArgumentParser(
@@ -332,7 +413,24 @@ class _ClusterRunners:
         )
         args, _ = parser.parse_known_args()
 
-        return cls(_stage=args.runner_stage)
+        return cls(_stage=args.runner_stage, **kwargs)
+
+
+def _build_argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Cluster Runner")
+    parser.add_argument(
+        "--log-level",
+        type=int,
+        default=get_environment_default_log_level(),
+        help="Argparse logging level to use."
+    )
+    parser.add_argument(
+        "--project-dir",
+        type=Path,
+        help="Path to root directory of project.",
+        required=True,
+    )
+    return parser
 
 
 def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
@@ -359,30 +457,16 @@ def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
 
 
 def main():
-    # TODO: Extract log level parsing to other script
-    parser = argparse.ArgumentParser(description="Logger Management")
-    parser.add_argument(
-        "--log-level",
-        type=int,
-        default=get_environment_default_log_level(),
-        help="Numeric logging level passed from parent process."
-    )
-    parser.add_argument(
-        "--project-dir",
-        type=Path,
-        help="Path to root directory of project."
-    )
-    args, _ = parser.parse_known_args()
-
+    args, _ = _build_argument_parser().parse_known_args()
     logger.setLevel(args.log_level)
+
     paths = ProjectPaths(args.project_dir)
     config = ClusterConfig.from_toml(paths.cluster_config_toml)
 
     workflow_class = _find_user_workflow_class(
-        (paths.project_dir / config.global_config.workflow_script_rel_path).resolve()
+        config.global_config.get_workflow_script_path(paths.project_dir)
     )
-    # TODO: Call runners using entrypoint
-    # _ClusterRunners.from_args().run_stage()
+    _ClusterRunners.from_args(workflow_class=workflow_class).run_stage()
 
 
 if __name__ == "__main__":

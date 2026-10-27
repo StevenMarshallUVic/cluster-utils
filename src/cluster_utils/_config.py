@@ -20,6 +20,9 @@ from typing import Any
 class GlobalConfig:
     workflow_script_rel_path: Path
 
+    def get_workflow_script_path(self, project_dir: Path) -> Path:
+        return (project_dir / self.workflow_script_rel_path).resolve()
+
     @classmethod
     def from_dict(cls, d: dict[str, Any]):
         instance = cls(
