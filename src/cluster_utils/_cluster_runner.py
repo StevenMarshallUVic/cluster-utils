@@ -10,9 +10,8 @@ from typing import Any, Self, ClassVar
 from cluster_utils import get_environment_default_log_level, init_logger
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths
-from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams, \
-    SlurmJobType, SlurmDependencies, SlurmDependency, add_argument_to_parser, \
-    ArrayJobInstanceParams
+from cluster_utils.data import ArrayJobData, Paths, SlurmParams, \
+    SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams
 from cluster_utils.utils import EnumAction, _RunnerStage, \
     run_subprocess_command, ArgParseable
 from cluster_utils.workflow_utils import find_subclasses_in_script, ArgParser
@@ -45,9 +44,8 @@ class _LoginRunner(ArgParser):
 
     login_params: _LoginParams
     paths: Paths
-    inputs: Input
 
-    workflow: ClassVar[type[LoginWorkflow]]
+    workflow: ClassVar[type[FullWorkflow]]
 
     @staticmethod
     def parser_name() -> str:
@@ -60,9 +58,9 @@ class _LoginRunner(ArgParser):
 
     @staticmethod
     def static_argument_sources() -> list[type[ArgParseable]]:
-        static_argument_sources = [_LoginParams, Paths, Input]
-        for job in _LoginRunner.workflow.jobs():
-            slurm_params_type = type(
+        static_argument_sources: list[type[ArgParseable]] = [_LoginParams, Paths]
+        for job in _LoginRunner.workflow().login_workflow.jobs():
+            slurm_params_type: type[ArgParseable] = type(
                 job.job_name().title(),
                 (SlurmParams,),
                 {"job": job}
@@ -78,28 +76,28 @@ class _LoginRunner(ArgParser):
         Whether login tasks were run successfully.
         """
 
-        if not self.workflow.pre_initialize():
+        if not self.workflow().login_workflow.pre_initialize():
             return False
         if not self.initialize():
             return False
-        if not self.workflow.post_initialize():
+        if not self.workflow().login_workflow.post_initialize():
             return False
 
-        if not self.workflow.pre_job_submission():
+        if not self.workflow().login_workflow.pre_job_submission():
             return False
         if not self.submit_compute_jobs():
             logger.warning(
                 "One or more compute jobs failed, skipping post processing."
             )
             return False
-        if not self.workflow.post_job_submission():
+        if not self.workflow().login_workflow.post_job_submission():
             return False
 
-        if not self.workflow.pre_post_process():
+        if not self.workflow().login_workflow.pre_post_process():
             return False
         if not self.post_process():
             return False
-        if not self.workflow.post_post_process():
+        if not self.workflow().login_workflow.post_post_process():
             return False
 
         return True
@@ -124,12 +122,12 @@ class _LoginRunner(ArgParser):
             Whether compute jobs completed successfully.
         """
 
-        if len(self.workflow.jobs()) <= 0:
+        if len(self.workflow().login_workflow.jobs()) <= 0:
             logger.info("No jobs to submit!")
             return True
 
         job_to_slurm_id: dict[type[SlurmJob], int] = {}
-        for job in self.workflow.jobs():
+        for job in self.workflow().login_workflow.jobs():
             depends: list[SlurmDependency] = []
             for depend_job, depend_type in job.job_dependencies().items():
                 if depend_job not in job_to_slurm_id:
@@ -234,11 +232,12 @@ class _LoginRunner(ArgParser):
 
     @classmethod
     def from_custom_args(cls, args: argparse.Namespace, **kwargs) -> Self:
+        if len(kwargs) > 0:
+            raise ValueError(f"Unexpected keyword arguments: {kwargs}.")
+
         return cls(
             login_params=_LoginParams.from_args(args),
-            paths=Paths.from_args(args),
-            inputs=Input.from_args(args),
-            **kwargs
+            paths=Paths.from_custom_args(args, cls.workflow().project_name),
         )
 
 
@@ -273,7 +272,7 @@ class _ComputeRunner(ArgParser):
         """Path to output directory on the compute node."""
         return self.compute_dir / "output"
 
-    def run(self, workflow: ComputeWorkflow) -> bool:
+    def run(self) -> bool:
         """Perform a compute run."""
 
         if not self._initialize_file_structure():
@@ -382,15 +381,12 @@ class _ClusterRunners:
         Whether stage was run successfully.
         """
 
-        workflow = self._workflow_class()
         match self._stage:
             case _RunnerStage.LOGIN:
-                _LoginRunner.workflow = workflow.login_workflow
+                _LoginRunner.workflow = self._workflow_class
                 return _LoginRunner.from_args().run()
             case _RunnerStage.COMPUTE:
-                return _ComputeRunner.from_args().run(
-                    workflow.compute_workflow(),
-                )
+                return _ComputeRunner.from_args().run()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 

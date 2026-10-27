@@ -11,7 +11,9 @@ from math import ceil
 from pathlib import Path
 from typing import Any, ClassVar
 
-from cluster_utils import init_logger
+from pygments.styles import default
+
+from cluster_utils import init_logger, get_project_dir
 from cluster_utils.utils import ArgParseable, JsonSerializable
 
 logger = init_logger(Path(__file__).name)
@@ -345,7 +347,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
             group: argparse._ArgumentGroup | None = None,
             prefix: str | None = None,
     ) -> None:
-        group = group if group is not None else parser.add_argument_group(
+        group = group or parser.add_argument_group(
             "Slurm Parameters",
             "Parameters used for Slurm job submission."
         )
@@ -413,18 +415,20 @@ class ProjectPaths(ArgParseable, JsonSerializable):
     project_dir: Path
     scratch_dir: Path
 
+    ACCOUNT_TXT_NAME = ".account.txt"
+
     # TODO: Confirm this can be removed
-    @property
-    @abstractmethod
-    def runner_module_path(self) -> str:
-        """Abstract property for specifying the module path to the runner
-        script."""
-        pass
+    # @property
+    # @abstractmethod
+    # def runner_module_path(self) -> str:
+    #     """Abstract property for specifying the module path to the runner
+    #     script."""
+    #     pass
 
     @property
     def account_file(self):
         """Default path to the account file for this project."""
-        return self.project_dir / ".account.txt"
+        return self.construct_account_file_path(self.project_dir)
 
     @property
     def src_dir(self) -> Path:
@@ -447,6 +451,10 @@ class ProjectPaths(ArgParseable, JsonSerializable):
     def runs_root_dir(self) -> Path:
         """Root directory where runs will be saved."""
         return self.scratch_project_dir / "runs"
+
+    @classmethod
+    def construct_account_file_path(cls, project_sir: Path) -> Path:
+        return project_sir / cls.ACCOUNT_TXT_NAME
 
     @staticmethod
     def read_account_from_file(account_file: Path) -> str | None:
@@ -485,8 +493,6 @@ class ProjectPaths(ArgParseable, JsonSerializable):
                  f"charge usage to. "
                  f"When not supplied, attempts to find value in account file.",
             type=str,
-            # TODO: Handle default
-            default=cls.read_account_from_file(),
         )
         add_argument_to_parser(
             parser,
@@ -497,6 +503,7 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             help="(Optional) Path to project directory. "
                  "When not supplied, inferred from relative file structure.",
             type=Path,
+            default=get_project_dir(),
         )
         add_argument_to_parser(
             parser,
@@ -510,6 +517,32 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             default=os.getenv(SCRATCH_ENV_VAR),
         )
 
+    @classmethod
+    def from_custom_args(
+            cls,
+            args: argparse.Namespace,
+            **fallbacks: Any,
+    ):
+        account = getattr(args, "account", None)
+        if not account:
+            project_dir = getattr(args, "project_dir")
+            account = cls.read_account_from_file(
+                cls.construct_account_file_path(project_dir)
+            )
+            if not account:
+                raise RuntimeError(
+                    "Account file not found. "
+                    "'--account' flag must be provided."
+                )
+
+        if not args.scratch_dir:
+            raise argparse.ArgumentError(
+                None,
+                f"Could not find '{SCRATCH_ENV_VAR}' in environment. "
+                "Must provide '--scratch-dir' when using '--input-path'."
+            )
+
+        return cls.from_args(args, account=account, **fallbacks)
 
 @dataclass(frozen=True)
 class RunPaths(ArgParseable, JsonSerializable):
@@ -708,7 +741,10 @@ class RunPaths(ArgParseable, JsonSerializable):
             group: argparse._ArgumentGroup | None = None,
             prefix: str | None = None,
     ) -> None:
-        # TODO: Test that mutually exclusive group works
+        group = group or parser.add_argument_group(
+            "Run Paths",
+            "Paths for a run.",
+        )
         input_or_run_group = group.add_mutually_exclusive_group(required=True)
         add_argument_to_parser(
             parser,
@@ -820,7 +856,6 @@ class RunPaths(ArgParseable, JsonSerializable):
         if (run_dir is None) == (input_path is None):
             raise argparse.ArgumentError(
                 None,
-                "Invalid command line arguments. "
                 "Must supply exactly one of '--run-dir' or '--input-path'."
             )
 
@@ -828,7 +863,6 @@ class RunPaths(ArgParseable, JsonSerializable):
             if args.run_name:
                 raise argparse.ArgumentError(
                     None,
-                    "Invalid command line arguments. "
                     "Cannot use '--run-name' when '--run-dir' is supplied."
                 )
             if not run_dir.is_dir():
@@ -841,14 +875,6 @@ class RunPaths(ArgParseable, JsonSerializable):
             return cls.from_previous_run_dir(args, run_dir, **fallbacks)
 
         if input_path is not None:
-            if not args.scratch_dir:
-                raise argparse.ArgumentError(
-                    None,
-                    "Invalid command line arguments. "
-                    f"Could not find '{SCRATCH_ENV_VAR}' in environment. "
-                    "Must provide '--scratch-dir' when using '--input-path'."
-                )
-
             return cls.from_input(args, input_path, runs_root_dir, **fallbacks)
 
         raise ValueError(
@@ -944,6 +970,9 @@ class AttemptPaths:
         int
             Next attempt index.
         """
+
+        if not attempts_dir.is_dir():
+            return 1
 
         return max([
             int(d.stem.removeprefix(cls.ATTEMPT_DIR_PREFIX))
@@ -1084,8 +1113,17 @@ class Paths(ArgParseable, JsonSerializable):
         RunPaths.add_arguments(parser, group, prefix)
 
     @classmethod
-    def from_args(cls, args: argparse.Namespace, **fallbacks: Any):
-        project_paths = ProjectPaths.from_args(args, **fallbacks)
+    def from_custom_args(
+            cls,
+            args: argparse.Namespace,
+            project_name: str,
+            **fallbacks: Any
+    ):
+        project_paths = ProjectPaths.from_custom_args(
+            args,
+            project_name=project_name,
+            **fallbacks
+        )
         run_paths = RunPaths.from_custom_args(
             args,
             project_paths.runs_root_dir,
@@ -1247,7 +1285,7 @@ class ArrayJobInstanceParams(ArgParseable):
             group: argparse._ArgumentGroup | None = None,
             prefix: str | None = None,
     ) -> None:
-        group = group if group is not None else parser.add_argument_group(
+        group = group or parser.add_argument_group(
             "Array Job Parameters",
             "Parameters used in the array job stage.",
         )
