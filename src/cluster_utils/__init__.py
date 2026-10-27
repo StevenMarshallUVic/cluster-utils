@@ -35,7 +35,7 @@ def get_environment_default_log_level() -> int:
 
 
 def init_logger(
-        name: string,
+        name: str,
         log_level: int = get_environment_default_log_level(),
 ) -> logging.Logger:
     """Create logger based on environment and root logger configuration.

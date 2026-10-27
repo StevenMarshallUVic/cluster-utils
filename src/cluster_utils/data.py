@@ -110,7 +110,6 @@ def add_argument_to_parser(
     )
 
 
-
 @dataclass(frozen=True)
 class SlurmDependency:
     """Dependency for a Slurm job.
@@ -172,6 +171,87 @@ class SlurmDependencies:
         """Create slurm dependency flag."""
         sep = "," if self.require_all_dependencies else "?"
         return sep.join([d.as_flag_value() for d in self.dependencies])
+
+
+@dataclass
+class SlurmJob(ABC):
+    @property
+    @abstractmethod
+    def job_name(self) -> str:
+        """Name of Slurm job. Will be shown in slurm job displays."""
+        pass
+
+    @property
+    @abstractmethod
+    def default_batch_size(self) -> int:
+        """Default number of inputs to batch together if an override is not
+        provided on the command line.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def default_memory(self) -> str:
+        """Default RAM to allocate if an override is not
+        provided on the command line.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def default_time(self) -> str:
+        """Default runtime to allocate if an override is not
+        provided on the command line.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def default_cpus_per_task(self) -> int:
+        """Default number of CPUs to allocate if an override is not
+        provided on the command line.
+        """
+        return 1
+
+    @property
+    @abstractmethod
+    def gpus(self) -> str | None:
+        """Optional number and type of GPUs to allocate."""
+        return None
+
+    @property
+    @abstractmethod
+    def job_type(self) -> SlurmJobType:
+        """Type of slurm job to submit."""
+        return SlurmJobType.ARRAY
+
+    @property
+    @abstractmethod
+    def arg_prefix(self) -> str | None:
+        """Optional prefix to add to command line arguments for slurm params.
+
+        Helpful when defining more than one SlurmJob in project, allowing
+        assignment of custom slurm params to each job type from command line.
+        """
+        return None
+
+    @property
+    @abstractmethod
+    def job_dependencies(
+            self
+    ) -> dict[type[SlurmJob], SlurmDependencyType]:
+        """Mapping between jobs that this job depends on and the nature
+        of the dependency.
+        """
+        return {}
+
+    @property
+    @abstractmethod
+    def require_all_dependencies(self) -> bool:
+        """When true, all dependencies must be satisfied.
+        Otherwise, any dependency may be satisfied.
+        """
+        return True
 
 
 @dataclass(frozen=True)
