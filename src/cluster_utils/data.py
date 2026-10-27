@@ -475,12 +475,6 @@ class Paths(ArgParseable, JsonSerializable):
     SLURM_PARAMS_JSON_NAME = "slurm_params.json"
 
     #region Abstract Properties
-    @classmethod
-    @abstractmethod
-    def project_name(cls) -> str:
-        """Abstract method for specifying the name of the project."""
-        pass
-
     @property
     @abstractmethod
     def runner_module_path(self) -> str:
