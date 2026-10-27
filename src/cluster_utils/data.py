@@ -16,6 +16,8 @@ from cluster_utils.utils import ArgParseable, JsonSerializable
 
 logger = init_logger(Path(__file__).name)
 
+SCRATCH_ENV_VAR = "SCRATCH"
+
 
 class SlurmJobType(StrEnum):
     SINGLE = auto()
@@ -814,47 +816,6 @@ class Paths(ArgParseable, JsonSerializable, ABC):
         return run_dir / "attempts"
 
     @classmethod
-    def from_args(cls, args: argparse.Namespace, **fallbacks: Any):
-        run_dir: Path | None = getattr(args, "run_dir", None)
-        input_path: Path | None = getattr(args, "input_path", None)
-
-        if (run_dir is None) == (input_path is None):
-            raise ValueError(
-                "Invalid command line arguments. "
-                "Must supply exactly one of '--run-dir' or '--input-path'."
-            )
-
-        if run_dir is not None:
-            if args.run_name:
-                raise ValueError(
-                    "Invalid command line arguments. "
-                    "Cannot use '--run-name' when '--run-dir' is supplied."
-                )
-            if not run_dir.is_dir():
-                raise NotADirectoryError(
-                    "Path passed with '--run-dir' must be a path to a run that "
-                    "was already created. Use '--input-path' to create run."
-                )
-            return cls.from_previous_run_dir(args, run_dir, **fallbacks)
-        elif input_path is not None:
-            if not args.scratch_dir:
-                raise ValueError(
-                    "Invalid command line arguments. "
-                    "Must provide '--scratch-dir' when using '--input-path'."
-                )
-            return cls.from_input(
-                args,
-                input_path,
-                args.scratch_dir,
-                **fallbacks
-            )
-        else:
-            raise ValueError(
-                "Unexpected values for command line arguments. "
-                f"'run-dir': {run_dir}, 'input-path': {input_path}."
-            )
-
-    @classmethod
     def from_previous_run_dir(
             cls,
             args: argparse.Namespace,
@@ -1074,8 +1035,54 @@ class Paths(ArgParseable, JsonSerializable, ABC):
             help="(Optional) Path to scratch directory on cluster. "
                  "When not supplied, retrieved from environment.",
             type=Path,
-            default=os.getenv("SCRATCH"),
+            default=os.getenv(SCRATCH_ENV_VAR),
         )
+
+    @classmethod
+    def from_args(cls, args: argparse.Namespace, **fallbacks: Any):
+        run_dir: Path | None = getattr(args, "run_dir", None)
+        input_path: Path | None = getattr(args, "input_path", None)
+
+        if (run_dir is None) == (input_path is None):
+            raise argparse.ArgumentError(
+                None,
+                "Invalid command line arguments. "
+                "Must supply exactly one of '--run-dir' or '--input-path'."
+            )
+
+        if run_dir is not None:
+            if args.run_name:
+                raise argparse.ArgumentError(
+                    None,
+                    "Invalid command line arguments. "
+                    "Cannot use '--run-name' when '--run-dir' is supplied."
+                )
+            if not run_dir.is_dir():
+                raise argparse.ArgumentError(
+                    None,
+                    "Path passed with '--run-dir' must be a path to a run that "
+                    "was already created. Use '--input-path' to create run."
+                )
+            return cls.from_previous_run_dir(args, run_dir, **fallbacks)
+        elif input_path is not None:
+            if not args.scratch_dir:
+                raise argparse.ArgumentError(
+                    None,
+                    "Invalid command line arguments. "
+                    f"Could not find '{SCRATCH_ENV_VAR}' in environment. "
+                    "Must provide '--scratch-dir' when using '--input-path'."
+                )
+            return cls.from_input(
+                args,
+                input_path,
+                args.scratch_dir,
+                **fallbacks
+            )
+        else:
+            raise ValueError(
+                "Unexpected values for command line arguments. "
+                f"'run-dir': {run_dir}, 'input-path': {input_path}."
+            )
 
 
 @dataclass(frozen=True)
