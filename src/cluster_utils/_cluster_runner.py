@@ -168,21 +168,20 @@ class _LoginRunner(ArgParser):
     def submit_array_job(
             self,
             job: type[SlurmJob],
-            extra_job_wrap_args: list[str] | None = None,
             dependencies: SlurmDependencies | None = None,
     ) -> int | None:
         """Submit a slurm array job to handle the compute portion of the job."""
 
+        compute_job_args = job.compute_job_args()
         wrap_args = [
             subprocess.list2cmdline([arg]) for arg in [
                 # TODO: Confirm this works
-                f"cd {self.paths.project_paths.project_dir} && cluster-run",
+                f"cd {self.paths.project_paths.project_dir}",
+                "&&", "cluster-run",
                 "--paths-json",  self.paths.attempt_paths.paths_json,
                 "--project-dir",  self.paths.project_paths.project_dir,
-                # "--python-module-path", self.paths.runner_module_path,
                 "--runner-stage",  _RunnerStage.COMPUTE.name,
-            ] + (extra_job_wrap_args if extra_job_wrap_args is not None else [])
-            # + (["--debug"] if logger.isEnabledFor(logging.DEBUG) else [])
+            ] + (compute_job_args if compute_job_args is not None else [])
         ]
 
         args = self.job_name_to_slurm_params[job.job_name()].build_array_job_command(

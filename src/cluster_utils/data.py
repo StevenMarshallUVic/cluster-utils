@@ -263,6 +263,12 @@ class SlurmJob(ABC):
 
     @staticmethod
     @abstractmethod
+    def compute_job_args() -> list[str] | None:
+        """Additional command line arguments to pass to compute job."""
+        return None
+
+    @staticmethod
+    @abstractmethod
     def get_missing_output_input_files(
             run_paths: RunPaths,
     ) -> list[Path]:
@@ -973,9 +979,9 @@ class AttemptPaths:
     def get_job_log_file_path(self, job: type[SlurmJob]) -> Path:
         match job.job_type():
             case SlurmJobType.ARRAY:
-                return self.logs_dir / f"{job.job_name}-%A_%a.log.log"
+                return self.logs_dir / f"{job.job_name()}-%A_%a.log.log"
             case SlurmJobType.SINGLE:
-                return self.logs_dir / f"{job.job_name}.log"
+                return self.logs_dir / f"{job.job_name()}.log"
             case _:
                 raise NotImplementedError(
                     f"Unsupported slurm job type: '{job.job_type()}'."
