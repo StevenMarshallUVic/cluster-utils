@@ -95,7 +95,7 @@ class _LoginRunner(ArgParser):
 
         if not self.paths.run_paths.input_dir.is_dir():
             logger.debug("Initializing input directory...")
-            self.input_dir.mkdir(parents=True)
+            self.paths.run_paths.input_dir.mkdir(parents=True)
 
             logger.debug("Transferring inputs to input directory...")
             input_path = self.paths.run_paths.input_path
