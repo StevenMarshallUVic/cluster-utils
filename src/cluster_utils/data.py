@@ -641,27 +641,29 @@ class RunPaths(ArgParseable, JsonSerializable):
         """Initialize run directory."""
         self.run_dir.mkdir(parents=True, exist_ok=True)
 
-    # TODO: Come up with abstract method/dataclass for allowing user to specify
-    #       custom logic for determining whether an output has been generated
-    #       for an input
     def get_missing_output_input_files(
             self,
             input_dir: Path | None = None,
             output_dir: Path | None = None,
-            file_suffix: str | None = None,
+            output_name_suffix: str | None = None,
+            output_file_extension: str | None = None,
     ) -> list[Path]:
         """Get paths to input files that have not been processed yet.
 
         Parameters
         ----------
         input_dir
-            Path to input directory. When not supplied, defaults to root
-            input directory for the run.
+            (Optional) Path to input directory.
+            When not supplied, defaults to root input directory for the run.
         output_dir
-            Path to output directory. When not supplied, defaults to root
-            output directory for the run.
-        file_suffix
-            Suffix of output files, or None if output are directories.
+            (Optional) Path to output directory.
+            When not supplied, defaults to root output directory for the run.
+        output_name_suffix
+            (Optional) Suffix at the end of an output file's name,
+            but before the first file extension, if any.
+        output_file_extension
+            (Optional) Extension of output files.
+            Treats outputs as directories if None (default).
 
         Returns
         -------
@@ -677,18 +679,28 @@ class RunPaths(ArgParseable, JsonSerializable):
         completed_ids = list()
         if output_dir.is_dir():
             for path in sorted(output_dir.iterdir()):
-                if file_suffix:
+                if output_file_extension:
                     if not path.is_file():
                         continue
 
                     path_id = path.stem \
                         if len(path.suffixes) == 0 \
                         else path.name.split(path.suffixes[0])[0]
-                    path_full_suffix = path.name.removeprefix(path_id)
-                    if path_full_suffix == file_suffix:
-                        completed_ids.append(path_id)
+                    if (output_name_suffix
+                            and not path_id.endswith(output_name_suffix)):
+                        continue
+
+                    file_extension = path.name.removeprefix(path_id)
+                    if file_extension != output_file_extension:
+                        continue
+
+                    completed_ids.append(path_id)
                 else:
                     if not path.is_dir():
+                        continue
+
+                    if (output_name_suffix
+                            and not path.name.endswith(output_name_suffix)):
                         continue
 
                     completed_ids.append(path.stem)
@@ -1070,6 +1082,8 @@ class Paths(ArgParseable, JsonSerializable):
             f"found at '{self.run_dir}'."
         )
 
+    # TODO: Figure out if this is still needed?
+    # TODO: Figure out where to call this
     def initialize_params_dirs(
             self,
             param_to_run_json_path: dict[JsonSerializable, Path],
@@ -1086,6 +1100,7 @@ class Paths(ArgParseable, JsonSerializable):
         for param, json_path in param_to_attempt_json_path.items():
             param.to_json(json_path)
 
+    # TODO: Figure out if this is still needed?
     def write_missing_results_array_job_data(
             self,
             batch_size: int
@@ -1101,7 +1116,7 @@ class Paths(ArgParseable, JsonSerializable):
 
         return ArrayJobData.write_array_job_data(
             self.attempt_array_job_data_dir,
-            self.get_missing_output_input_files(file_suffix=".tsv"),
+            self.run_paths.get_missing_output_input_files(file_extension=".tsv"),
             batch_size,
         )
 
