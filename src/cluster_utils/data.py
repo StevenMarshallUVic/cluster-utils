@@ -333,7 +333,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
         if max_array_index is None:
             return None
 
-        log_file = paths.get_job_log_file_path(self.job)
+        log_file = paths.attempt_paths.get_job_log_file_path(self.job)
         args = [
             "sbatch",
             f"--job-name={self.job.job_name()}",
