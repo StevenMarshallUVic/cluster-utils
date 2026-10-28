@@ -182,7 +182,7 @@ class _LoginRunner(ArgParser):
                 # "--python-module-path", self.paths.runner_module_path,
                 "--runner-stage",  _RunnerStage.COMPUTE.name,
             ] + (extra_job_wrap_args if extra_job_wrap_args is not None else [])
-            + (["--debug"] if logger.isEnabledFor(logging.DEBUG) else [])
+            # + (["--debug"] if logger.isEnabledFor(logging.DEBUG) else [])
         ]
 
         args = self.job_name_to_slurm_params[job.job_name()].build_array_job_command(
@@ -198,6 +198,7 @@ class _LoginRunner(ArgParser):
             return None
 
         logger.info(f"Waiting for {job.job_name()} slurm array job to complete...")
+        print(args) # TODO: Temp debug
         success = run_subprocess_command(args, logger=logger)
         # success = run_subprocess_command(
         #     args=["bash"] + wrap_args,
