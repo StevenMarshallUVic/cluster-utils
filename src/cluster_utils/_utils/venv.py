@@ -28,12 +28,12 @@ class VenvCreator:
     Attributes
     ----------
     paths
-        Paths for the project.
+        Paths for the virtual environment.
     requirements
         Python packages to install into virtual environment.
     """
 
-    paths: ProjectPaths
+    paths: VenvPaths
     requirements: tuple[PythonPackage, ...] = tuple()
 
     _DEFAULT_REQUIREMENTS: tuple[PythonPackage] = tuple([

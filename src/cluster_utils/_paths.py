@@ -33,12 +33,49 @@ class SrcPaths:
 
 
 @dataclass(frozen=True)
+class VenvPaths:
+    """Paths for a Python virtual environment.
+
+    Attributes
+    ----------
+    venv_dir
+        Root directory of virtual environment.
+    """
+
+    venv_dir: Path
+
+    @property
+    def venv_bin_dir(self):
+        """Path to directory containing virtual environment executables.
+
+        Correctly handles path differences between Windows and Unix systems.
+        """
+
+        return self.venv_dir / ("bin" if os.name != "nt" else "Scripts")
+
+    @property
+    def venv_python(self):
+        """Path to virtual environment executable.
+
+        Correctly handles path differences between Windows and Unix systems.
+        """
+
+        return self.venv_bin_dir / (
+            "python" if os.name != "nt" else "python.exe"
+        )
+
+
+@dataclass(frozen=True)
 class ProjectPaths:
     project_dir: Path
 
     ACCOUNT_TXT_NAME = ".account.txt"
     LOG_FILE_NAME = "last_run.log"
     VENV_DIR_NAME = ".cluster_venv"
+
+    @property
+    def venv_paths(self):
+        return VenvPaths(self.project_dir / self.VENV_DIR_NAME)
 
     @property
     def template_paths(self) -> list[Path]:
@@ -85,31 +122,6 @@ class ProjectPaths:
     def src_dir(self):
         """Root directory of source code for project."""
         return self.project_dir / "src"
-
-    @property
-    def venv_dir(self):
-        """Root directory of virtual environment for project."""
-        return self.project_dir / self.VENV_DIR_NAME
-
-    @property
-    def venv_bin_dir(self):
-        """Path to directory containing virtual environment executables.
-
-        Correctly handles path differences between Windows and Unix systems.
-        """
-
-        return self.venv_dir / ("bin" if os.name != "nt" else "Scripts")
-
-    @property
-    def venv_python(self):
-        """Path to virtual environment executable.
-
-        Correctly handles path differences between Windows and Unix systems.
-        """
-
-        return self.venv_bin_dir / (
-            "python" if os.name != "nt" else "python.exe"
-        )
 
     def create_src_dir(self) -> None:
         """Create src directory."""

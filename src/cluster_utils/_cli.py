@@ -15,7 +15,7 @@ from pathlib import Path
 
 from cluster_utils import PACKAGE_NAME, get_project_dir, init_logger
 from cluster_utils._config import ClusterConfig
-from cluster_utils._paths import ProjectPaths, SrcPaths
+from cluster_utils._paths import ProjectPaths, SrcPaths, VenvPaths
 from cluster_utils._utils import ON_CLUSTER
 from cluster_utils._utils.venv import VenvCreator
 from cluster_utils._utils import io, project_init
@@ -111,6 +111,24 @@ def perform_run(args: Iterable[str] | None = None):
     os.close(log_fd)
     exit(0)
     # os.execvp("python", ["python", paths.login_script])
+
+
+def update():
+    parser = argparse.ArgumentParser(
+        prog="Cluster Updater",
+        description="Handles updating cluster-utils package to latest version.",
+        add_help=True,
+    )
+    parser.add_argument(
+        "-v", "--venv",
+        dest="venv",
+        help="Virtual environment to update package within.",
+        type=Path,
+        required=True,
+    )
+    args = parser.parse_args(arguments)
+
+    VenvCreator(VenvPaths(args.venv)).install_requirements()
 
 
 def is_project_paths_initialized(
