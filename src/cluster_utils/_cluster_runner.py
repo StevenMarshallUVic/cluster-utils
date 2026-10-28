@@ -98,9 +98,15 @@ class _LoginRunner(ArgParser):
             self.input_dir.mkdir(parents=True)
 
             logger.debug("Transferring inputs to input directory...")
+            input_path = self.paths.run_paths.input_path
+            if input_path is None:
+                raise ValueError(
+                    "Input directory not initialized, input path required."
+                )
+
             self.workflow().login_workflow.transfer_input_to_run(
-                self.input_path,
-                self.input_dir
+                input_path,
+                self.paths.run_paths,
             )
         return True
 

@@ -4,7 +4,7 @@ from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from pathlib import Path
 
-from cluster_utils.data import SlurmJob
+from cluster_utils.data import SlurmJob, RunPaths
 
 
 class LoginWorkflow(ABC):
@@ -27,16 +27,15 @@ class LoginWorkflow(ABC):
 
     @staticmethod
     @abstractmethod
-    def transfer_input_to_run(input_path: Path, input_dir: Path) -> bool:
-        """Abstract method for handling the transfer of inputs to the run
-        input directory.
+    def transfer_input_to_run(input_path: Path, run_paths: RunPaths) -> bool:
+        """Abstract method for handling the transfer of inputs to the run.
 
         Parameters
         ----------
         input_path
             Path to input to handle transfer for.
-        input_dir
-            Run input directory to transfer to.
+        run_paths
+            Paths for run to transfer input to.
         """
         raise NotImplementedError()
 
