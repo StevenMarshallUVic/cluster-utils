@@ -60,11 +60,7 @@ class VenvCreator:
                 f"Could not find venv executable at {self.paths.venv_python}"
             )
 
-        install_cmd = [str(self.paths.venv_python), "-m", "pip"]
-        if ON_CLUSTER:
-            install_cmd.append("--no-index")
-
-        return install_cmd
+        return [str(self.paths.venv_python), "-m", "pip"]
 
     @property
     def _all_requirements(self) -> list[PythonPackage]:
@@ -148,16 +144,27 @@ class VenvCreator:
     def upgrade_pip(self) -> None:
         """Upgrade pip to latest version."""
 
+        args = self._pip_arguments + ["install"]
+        if ON_CLUSTER:
+            args.append("--no-index")
+
+        args.extend(["--upgrade", "pip"])
+
         subprocess.run(
-            self._pip_arguments + ["install", "--upgrade", "pip"],
+            args,
             check=True
         )
 
     def install_requirements(self) -> None:
         """Install python package requirements."""
 
+        args = self._pip_arguments + ["install"]
+        if ON_CLUSTER:
+            args.append("--no-index")
+
+        args.extend(self._all_requirements_args)
         subprocess.run(
-            self._pip_arguments + ["install"] + self._all_requirements_args,
+            args,
             check=True
         )
 
