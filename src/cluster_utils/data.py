@@ -715,17 +715,6 @@ class RunPaths(ArgParseable, JsonSerializable):
                 incomplete_paths.append(input_path)
         return sorted(incomplete_paths)
 
-    def initialize_input_dir(self) -> None:
-        """Create input directory and populate with input."""
-
-        if self.input_dir.is_dir():
-            return
-
-        logger.debug("Initializing input directory...")
-        self.input_dir.mkdir(parents=True)
-        logger.debug("Transferring inputs to input directory...")
-        self.transfer_input_to_run(self.input_path, self.input_dir)
-
     def initialize_output_dir(self) -> None:
         """Create output directory."""
 
@@ -1057,12 +1046,10 @@ class Paths(ArgParseable, JsonSerializable):
         Built-in run initialization includes:
             - Run directory creation
             - Attempt directory creation
-            - Input directory creation
             - Output directory creation
         """
 
         self.run_paths.initialize_run_dir()
-        self.run_paths.initialize_input_dir()
         self.run_paths.initialize_output_dir()
         self.attempt_paths.initialize_attempt_dir()
 
