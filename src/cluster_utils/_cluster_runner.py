@@ -91,7 +91,7 @@ class _LoginRunner(ArgParser):
         Whether initialization was successful.
         """
 
-        # TODO: Move run initialization logic from Paths class to here
+        self.paths.initialize_run()
         return True
 
     def submit_compute_jobs(self) -> bool:
