@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from cluster_utils import PACKAGE_NAME, PACKAGE_URL
-from cluster_utils._paths import ProjectPaths
+from cluster_utils._paths import VenvPaths
 from cluster_utils._utils import ON_CLUSTER
 from cluster_utils.utils import PythonPackage
 

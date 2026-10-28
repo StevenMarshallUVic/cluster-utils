@@ -88,7 +88,7 @@ def perform_run(arguments: Iterable[str] | None = None):
             PythonPackage.from_requirements_txt(requirements_file)
         ),
     ) if (requirements_file and requirements_file.is_file()) \
-        else VenvCreator(paths)
+        else VenvCreator(paths.venv_paths)
     venv.create_and_initialize_venv()
 
     logger.info("Passing execution to virtual environment in background...")
