@@ -1053,11 +1053,6 @@ class Paths(ArgParseable, JsonSerializable):
         self.run_paths.initialize_output_dir()
         self.attempt_paths.initialize_attempt_dir()
 
-        logger.info(
-            f"Performing attempt {self.current_attempt_index} of run "
-            f"found at '{self.run_dir}'."
-        )
-
     # TODO: Figure out if this is still needed?
     # TODO: Figure out where to call this
     def initialize_params_dirs(

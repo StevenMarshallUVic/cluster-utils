@@ -117,6 +117,11 @@ class _LoginRunner(ArgParser):
             logger.info("No jobs to submit!")
             return True
 
+        logger.info(
+            f"Performing attempt {self.paths.attempt_paths.attempt_index} "
+            f"of run found at '{self.paths.run_paths.run_dir}'."
+        )
+
         job_to_slurm_id: dict[type[SlurmJob], int | None] = {}
         for job in self.workflow().login_workflow.jobs():
             depends: list[SlurmDependency] = []
