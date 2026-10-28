@@ -13,7 +13,8 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from cluster_utils import PACKAGE_NAME, get_project_dir, init_logger
+from cluster_utils import PACKAGE_NAME, get_project_dir, init_logger, \
+    VIRTUAL_ENV_ENV_VAR
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths, SrcPaths, VenvPaths
 from cluster_utils._utils import ON_CLUSTER
@@ -82,7 +83,7 @@ def perform_run(arguments: Iterable[str] | None = None):
     logger.info("Initializing run virtual environment...")
     requirements_file = config.login_environment.requirements_file
     venv = VenvCreator(
-        paths=paths,
+        paths=paths.venv_paths,
         requirements=tuple(
             PythonPackage.from_requirements_txt(requirements_file)
         ),
@@ -119,14 +120,20 @@ def update(arguments: Iterable[str] | None = None):
         description="Handles updating cluster-utils package to latest version.",
         add_help=True,
     )
-    parser.add_argument(
+    venv_arg = parser.add_argument(
         "-v", "--venv",
         dest="venv",
         help="Virtual environment to update package within.",
         type=Path,
-        required=True,
+        default=os.environ.get(VIRTUAL_ENV_ENV_VAR),
     )
     args = parser.parse_args(arguments)
+    if args.venv is None:
+        raise argparse.ArgumentError(
+            venv_arg,
+            f"Could not find {VIRTUAL_ENV_ENV_VAR} in environment. "
+            f"Must provide '--venv' flag."
+        )
 
     VenvCreator(VenvPaths(args.venv)).install_requirements()
 
