@@ -86,15 +86,14 @@ def perform_run(arguments: Iterable[str] | None = None):
         paths=paths.venv_paths,
         requirements=tuple(
             PythonPackage.from_requirements_txt(requirements_file)
-        ),
-    ) if (requirements_file and requirements_file.is_file()) \
-        else VenvCreator(paths.venv_paths)
+        ) if (requirements_file and requirements_file.is_file()) else tuple(),
+    )
     venv.create_and_initialize_venv()
 
     logger.info("Passing execution to virtual environment in background...")
     # Build command line arguments
     arguments = [
-        "python", SrcPaths.RUNNER_SCRIPT,
+        "python", "-m" "cluster_utils._cluster_runner",
         "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel()),
         "--project-dir", paths.project_dir,
     ] + sys.argv[1:]
