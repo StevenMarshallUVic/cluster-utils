@@ -247,7 +247,7 @@ class SlurmJob(ABC):
 
     @staticmethod
     @abstractmethod
-    def job_dependencies() -> dict[type[Self], SlurmDependencyType]:
+    def job_dependencies() -> dict[type[SlurmJob], SlurmDependencyType]:
         """Mapping between jobs that this job depends on and the nature
         of the dependency.
         """
@@ -260,6 +260,26 @@ class SlurmJob(ABC):
         Otherwise, any dependency may be satisfied.
         """
         return True
+
+    @staticmethod
+    @abstractmethod
+    def get_missing_output_input_files(
+            run_paths: RunPaths,
+    ) -> list[Path]:
+        """Identify all input files that do not have a corresponding output
+        file.
+
+        Parameters
+        ----------
+        run_paths
+            Path for the run.
+
+        Returns
+        -------
+        list[Path]
+            Paths to input files that need to be run through this job.
+        """
+        return run_paths.get_missing_output_input_files()
 
 
 @dataclass(frozen=True)
@@ -295,11 +315,20 @@ class SlurmParams(ArgParseable, JsonSerializable):
             dependencies: SlurmDependencies | None = None,
     ) -> list[str] | None:
         """Submit a slurm array job to handle the compute portion of the job."""
-        # TODO: Add docstring (also copy to runner method)
 
-        # TODO: Figure out how to pass paths
+        remaining_input_files = self.job.get_missing_output_input_files(
+            paths.run_paths,
+        )
+        if len(remaining_input_files) <= 0:
+            return None
+
+        ArrayJobData.write_array_job_data(
+            paths.attempt_paths.get_array_job_data_dir_for_job(self.job),
+            remaining_input_files,
+            self.batch_size,
+        )
         max_array_index = ArrayJobData.find_greatest_array_job_index(
-            paths.attempt_paths.get_job_array_job_data_dir(self.job),
+            paths.attempt_paths.get_array_job_data_dir_for_job(self.job),
         )
         if max_array_index is None:
             return None
@@ -924,7 +953,7 @@ class AttemptPaths:
         return self.logs_dir / f"{self.project_name}-compute-%A_%a.log"
 
     @property
-    def array_job_data_dir(self) -> Path:
+    def array_job_data_root_dir(self) -> Path:
         """Directory of array job data for the current attempt."""
         return self.attempt_dir / "array_job_data"
 
@@ -943,8 +972,8 @@ class AttemptPaths:
         """JSON file to write slurm parameters for the current attempt to."""
         return self.params_dir / SLURM_PARAMS_JSON_NAME
 
-    def get_job_array_job_data_dir(self, job: type[SlurmJob]) -> Path:
-        return self.array_job_data_dir / job.job_name()
+    def get_array_job_data_dir_for_job(self, job: type[SlurmJob]) -> Path:
+        return self.array_job_data_root_dir / job.job_name()
 
     def get_job_log_file_path(self, job: type[SlurmJob]) -> Path:
         match job.job_type():
