@@ -1,5 +1,6 @@
 """Classes for storing data used in jobs run on a cluster."""
 
+from __future__ import annotations
 import argparse
 import os
 import shutil
@@ -9,7 +10,7 @@ from datetime import datetime
 from enum import auto, StrEnum
 from math import ceil
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, cast, Self
 
 from cluster_utils import init_logger, get_project_dir
 from cluster_utils.utils import ArgParseable, JsonSerializable
@@ -246,7 +247,7 @@ class SlurmJob(ABC):
 
     @staticmethod
     @abstractmethod
-    def job_dependencies() -> dict[type[SlurmJob], SlurmDependencyType]:
+    def job_dependencies() -> dict[type[Self], SlurmDependencyType]:
         """Mapping between jobs that this job depends on and the nature
         of the dependency.
         """
