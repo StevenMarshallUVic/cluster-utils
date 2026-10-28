@@ -52,12 +52,12 @@ def initialize_project(arguments: Iterable[str] | None = None) -> None:
     )
 
 
-def perform_run(args: Iterable[str] | None = None):
+def perform_run(arguments: Iterable[str] | None = None):
     """Command for submitting a run.
 
     Parameters
     ----------
-    args
+    arguments
         (Optional) When provided, uses the given args instead of command line
         arguments.
     """
@@ -92,7 +92,7 @@ def perform_run(args: Iterable[str] | None = None):
 
     logger.info("Passing execution to virtual environment in background...")
     # Build command line arguments
-    args = [
+    arguments = [
         "python", SrcPaths.RUNNER_SCRIPT,
         "--log-level", str(logging.getLogger(PACKAGE_NAME).getEffectiveLevel()),
         "--project-dir", paths.project_dir,
@@ -102,7 +102,7 @@ def perform_run(args: Iterable[str] | None = None):
     sys.stdout.flush()
     log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
     subprocess.Popen(
-        args,
+        arguments,
         env=os.environ.copy(),
         stdout=log_fd,
         stderr=subprocess.STDOUT,
@@ -113,7 +113,7 @@ def perform_run(args: Iterable[str] | None = None):
     # os.execvp("python", ["python", paths.login_script])
 
 
-def update():
+def update(arguments: Iterable[str] | None = None):
     parser = argparse.ArgumentParser(
         prog="Cluster Updater",
         description="Handles updating cluster-utils package to latest version.",
