@@ -10,11 +10,13 @@ class CustomFullWorkflow(FullWorkflow):
     @property
     def login_workflow(self) -> type[LoginWorkflow]:
         raise NotImplementedError(
-            "Must create class inheriting from `LoginWorkflow` and assign."
+            "Must create class inheriting from `LoginWorkflow` "
+            "and assign type."
         )
 
     @property
     def compute_workflow(self) -> type[ComputeWorkflow]:
         raise NotImplementedError(
-            "Must create class inheriting from `ComputeWorkflow` and assign."
+            "Must create class inheriting from `ComputeWorkflow` "
+            "and assign type."
         )

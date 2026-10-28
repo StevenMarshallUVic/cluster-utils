@@ -19,6 +19,7 @@ from cluster_utils._paths import ProjectPaths, SrcPaths
 from cluster_utils._utils import ON_CLUSTER
 from cluster_utils._utils.venv import VenvCreator
 from cluster_utils._utils import io, project_init
+from cluster_utils.utils import PythonPackage
 
 if ON_CLUSTER:
     from cluster_utils._utils.lmod import LmodModuleLoader
@@ -80,9 +81,11 @@ def perform_run(args: Iterable[str] | None = None):
     # TODO: Add branch for creating venv on compute node if on compute node
     logger.info("Initializing run virtual environment...")
     requirements_file = config.login_environment.requirements_file
-    venv = VenvCreator.from_requirements_txt(
-        requirements_file,
-        paths=paths
+    venv = VenvCreator(
+        paths=paths,
+        requirements=tuple(
+            PythonPackage.from_requirements_txt(requirements_file)
+        ),
     ) if (requirements_file and requirements_file.is_file()) \
         else VenvCreator(paths)
     venv.create_and_initialize_venv()

@@ -26,7 +26,7 @@ class LoginWorkflow(ABC):
 
     @staticmethod
     @abstractmethod
-    def transfer_input_to_run(input_path: Path, input_dir: Path) -> None:
+    def transfer_input_to_run(input_path: Path, input_dir: Path) -> bool:
         """Abstract method for handling the transfer of inputs to the run
         input directory.
 

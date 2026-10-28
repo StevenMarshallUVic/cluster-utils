@@ -155,9 +155,11 @@ def _write_project_files(init: ProjectInitParams) -> None:
         init.relative_to_project(init.project_paths.cluster_config_toml),
     )
     logger.info(
-        "Cluster runner script created at '%s'. "
+        "Workflow script created at '%s'. "
         "Modify template to implement custom logic.",
-        init.relative_to_project(init.project_paths.cluster_runner_script),
+        init.relative_to_project(
+            init.project_paths.cluster_workflow_script
+        ),
     )
     if init.account:
         init.project_paths.write_account(init.account)
