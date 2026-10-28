@@ -194,15 +194,8 @@ class VenvCreator:
         installed_name_to_package = {p.name: p for p in installed}
         missing_requirements = []
         for requirement in requirements:
-            # Only compare by name if package was installed using a link
-            if requirement.link:
-                if (requirement.name not in installed_name_to_package
-                        and requirement.name.replace("_", "-") not in installed_name_to_package):
-                    missing_requirements.append(requirement)
-
-                continue
-
-            if requirement not in installed:
+            if (requirement.name not in installed_name_to_package
+                    and requirement.name.replace("_", "-") not in installed_name_to_package):
                 missing_requirements.append(requirement)
 
         return missing_requirements
