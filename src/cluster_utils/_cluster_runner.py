@@ -11,12 +11,12 @@ from cluster_utils import get_environment_default_log_level, init_logger
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths
 from cluster_utils.data import ArrayJobData, Paths, SlurmParams, \
-    SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams
+    SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
+    SlurmJob
 from cluster_utils.utils import EnumAction, _RunnerStage, \
     run_subprocess_command, ArgParseable
 from cluster_utils.workflow_utils import find_subclasses_in_script, ArgParser
-from cluster_utils.workflow import FullWorkflow, LoginWorkflow, ComputeWorkflow, \
-    SlurmJob
+from cluster_utils.workflow import FullWorkflow, LoginWorkflow, ComputeWorkflow
 
 logger = init_logger(Path(__file__).name)
 
