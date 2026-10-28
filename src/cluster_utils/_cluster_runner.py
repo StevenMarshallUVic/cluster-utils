@@ -107,7 +107,7 @@ class _LoginRunner(ArgParser):
             logger.info("No jobs to submit!")
             return True
 
-        job_to_slurm_id: dict[type[SlurmJob], int] = {}
+        job_to_slurm_id: dict[type[SlurmJob], int | None] = {}
         for job in self.workflow().login_workflow.jobs():
             depends: list[SlurmDependency] = []
             for depend_job, depend_type in job.job_dependencies().items():
@@ -116,9 +116,14 @@ class _LoginRunner(ArgParser):
                         f"Trying to submit job '{job.job_name()}' "
                         f"before dependency '{depend_job.job_name()}'."
                     )
+                # Skip adding dependency to jobs that did not run
+                slurm_id = job_to_slurm_id[depend_job]
+                if slurm_id is None:
+                    continue
+
                 depends.append(SlurmDependency(
                     depend_type,
-                    tuple([job_to_slurm_id[depend_job]]),
+                    tuple([slurm_id]),
                 ))
             dependencies = SlurmDependencies(
                 dependencies=tuple(depends),
@@ -127,22 +132,12 @@ class _LoginRunner(ArgParser):
 
             match job.job_type():
                 case SlurmJobType.ARRAY:
-                    if not self.submit_array_job(
+                    job_to_slurm_id[job] = self.submit_array_job(
                         job,
                         dependencies=dependencies,
-                    ):
-                        logger.warning(
-                            "Array job submission failed for '%s'.",
-                            job.job_type,
-                        )
-                        return False
+                    )
                 case SlurmJobType.SINGLE:
-                    if not self.submit_single_job(job):
-                        logger.warning(
-                            "Single job submission failed for '%s'.",
-                            job.job_type,
-                        )
-                        return False
+                    job_to_slurm_id[job] = self.submit_single_job(job)
                 case _:
                     raise NotImplementedError(
                         f"Unsupported slurm job type: '{job.job_type}'."
@@ -154,7 +149,7 @@ class _LoginRunner(ArgParser):
             job: type[SlurmJob],
             extra_job_wrap_args: list[str] | None = None,
             dependencies: SlurmDependencies | None = None,
-    ) -> bool:
+    ) -> int | None:
         """Submit a slurm array job to handle the compute portion of the job."""
 
         wrap_args = [
@@ -179,7 +174,7 @@ class _LoginRunner(ArgParser):
                 f"No jobs to run for {job.job_name()}, "
                 f"skipping array job submission!"
             )
-            return True
+            return None
 
         logger.info(f"Waiting for {job.job_name()} slurm array job to complete...")
         success = run_subprocess_command(args, logger=logger)
@@ -188,13 +183,15 @@ class _LoginRunner(ArgParser):
         #     logger=logger,
         # )
 
+        # TODO: Return slurm job ID
+
         if success:
             logger.info(f"{job.job_name()} slurm jobs completed!")
         else:
             logger.warning(f"One or more {job.job_name()} slurm jobs failed.")
         return success
 
-    def submit_single_job(self, job: SlurmJob) -> bool:
+    def submit_single_job(self, job: SlurmJob) -> int:
         """Submit a single slurm job to handle the compute portion of the job.
         """
         raise NotImplementedError()
