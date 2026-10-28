@@ -127,10 +127,17 @@ class VenvCreator:
             self.installed_packages,
         )
         if missing_reqs:
+            process = subprocess.run(
+                self._pip_arguments + ["list"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            print(process.stdout.strip())
             nl = "\n"
             raise RuntimeError(
                 f"One or more requirements failed to install: "
-                f"{nl.join([r.requirement_str for r in missing_reqs])}"
+                f"{nl}{nl.join([r.requirement_str for r in missing_reqs])}"
             )
         self.source_venv()
 
@@ -197,8 +204,6 @@ class VenvCreator:
             # Only compare by name if package was installed using a link
             if requirement.link:
                 if requirement.name not in installed_name_to_package:
-                    print(installed_name_to_package)
-                    print(requirement)
                     missing_requirements.append(requirement)
 
                 continue
