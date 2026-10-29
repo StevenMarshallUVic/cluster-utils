@@ -13,8 +13,6 @@ from pathlib import Path
 from typing import Any
 
 
-# TODO: Create helper method for generating prefix flags
-
 class _RunnerStage(Enum):
     """Stages of cluster program."""
 
