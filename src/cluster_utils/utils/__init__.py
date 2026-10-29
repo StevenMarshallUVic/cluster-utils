@@ -12,6 +12,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
+from cluster_utils._utils import ON_CLUSTER
+
 
 class _RunnerStage(Enum):
     """Stages of cluster program."""
@@ -93,7 +95,9 @@ class PythonPackage:
         if self.version is None:
             return target
 
-        return f"{target}=={self.version}"
+        return f"{target}=={self.version if ON_CLUSTER else self.version.removesuffix('+computecanada')}"
+
+
 
     @classmethod
     def from_requirements_txt(cls, file: Path) -> list[PythonPackage]:
