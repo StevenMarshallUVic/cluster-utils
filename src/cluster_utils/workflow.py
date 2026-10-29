@@ -22,7 +22,7 @@ class LoginWorkflow(ABC):
 
     @staticmethod
     @abstractmethod
-    def pre_initialize(login_paths: LoginPaths) -> bool:
+    def pre_initialize(paths: LoginPaths) -> bool:
         return True
 
     @staticmethod
@@ -41,27 +41,27 @@ class LoginWorkflow(ABC):
 
     @staticmethod
     @abstractmethod
-    def post_initialize(login_paths: LoginPaths) -> bool:
+    def post_initialize(paths: LoginPaths) -> bool:
         return True
 
     @staticmethod
     @abstractmethod
-    def pre_job_submission(login_paths: LoginPaths) -> bool:
+    def pre_job_submission(paths: LoginPaths) -> bool:
         return True
 
     @staticmethod
     @abstractmethod
-    def post_job_submission(login_paths: LoginPaths) -> bool:
+    def post_job_submission(paths: LoginPaths) -> bool:
         return True
 
     @staticmethod
     @abstractmethod
-    def pre_post_process(login_paths: LoginPaths) -> bool:
+    def pre_post_process(paths: LoginPaths) -> bool:
         return True
 
     @staticmethod
     @abstractmethod
-    def post_post_process(login_paths: LoginPaths) -> bool:
+    def post_post_process(paths: LoginPaths) -> bool:
         return True
 
 

@@ -289,27 +289,27 @@ class SlurmJob(ABC):
 
     @staticmethod
     @abstractmethod
-    def pre_initialize(compute_paths: ComputePaths) -> bool:
+    def pre_initialize(paths: ComputePaths) -> bool:
         return True
 
     @staticmethod
     @abstractmethod
-    def post_initialize(compute_paths: ComputePaths) -> bool:
+    def post_initialize(paths: ComputePaths) -> bool:
         return True
 
     @staticmethod
     @abstractmethod
-    def perform_computations(compute_paths: ComputePaths) -> bool:
+    def perform_computations(paths: ComputePaths) -> bool:
         return True
 
     @staticmethod
     @abstractmethod
-    def pre_post_process(compute_paths: ComputePaths) -> bool:
+    def pre_post_process(paths: ComputePaths) -> bool:
         return True
 
     @staticmethod
     @abstractmethod
-    def post_post_process(compute_paths: ComputePaths) -> bool:
+    def post_post_process(paths: ComputePaths) -> bool:
         return True
 
 
