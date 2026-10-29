@@ -277,7 +277,7 @@ def initialize_environment(
 
 def _construct_runner_subprocess_args(project_paths: ProjectPaths):
     return [
-        "python", "-m" "cluster_utils._cluster_runner",
+        "python", "-m", "cluster_utils._cluster_runner",
         "--log-level", str(logger.getEffectiveLevel()),
         "--project-dir", project_paths.project_dir,
     ] + sys.argv[1:]
