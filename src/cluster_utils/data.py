@@ -1226,11 +1226,11 @@ class ComputeNodePaths:
             provided.
         """
 
-        input_files: list[Path] = sorted(self.input_dir.iterdir())
-        for input_index, input_file in enumerate(input_files, start=1):
+        inputs = self.inputs
+        for input_index, input_file in enumerate(inputs, start=1):
             if log_name:
                 logger.info(f"Performing {log_name} on {input_file.stem} "
-                            f"({input_index}/{len(input_files)})...")
+                            f"({input_index}/{len(inputs)})...")
             func(input_file)
 
 
