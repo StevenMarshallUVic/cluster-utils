@@ -5,6 +5,7 @@ https://docs.kernel.org/filesystems/squashfs.html
 """
 
 import shutil
+import subprocess
 from enum import StrEnum
 from pathlib import Path
 
