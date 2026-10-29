@@ -142,3 +142,12 @@ class ProjectPaths:
         Overwrites previous contents if account file already existed.
         """
         self.account_txt.write_text(account)
+
+
+@dataclass(frozen=True)
+class ComputePaths:
+    compute_dir: Path
+
+    @property
+    def venv_dir(self):
+        return self.compute_dir / ".venv"

@@ -13,17 +13,19 @@ root_logger = logging.getLogger()
 DEV_LOG_LEVEL = logging.DEBUG
 PROD_LOG_LEVEL = logging.INFO
 
-VIRTUAL_ENV_ENV_VAR = "VIRTUAL_ENV"
+VENV_ENV_VAR = "VIRTUAL_ENV"
+SLURM_TMP_DIR_ENV_VAR = "SLURM_TMPDIR"
+SLURM_JOB_NAME_ENV_VAR = "SLURM_JOB_NAME"
 # TODO: Sort out entire project file structure to unify utils, streamline paths, etc
 
 
 def get_project_dir() -> Path:
     """Get root directory of project that this package is installed in."""
 
-    venv_dir = os.environ.get(VIRTUAL_ENV_ENV_VAR)
+    venv_dir = os.environ.get(VENV_ENV_VAR)
     if not venv_dir:
         raise RuntimeError(
-            f"Could not find '{VIRTUAL_ENV_ENV_VAR}' in environment."
+            f"Could not find '{VENV_ENV_VAR}' in environment."
         )
 
     return Path(venv_dir).parent

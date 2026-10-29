@@ -287,6 +287,31 @@ class SlurmJob(ABC):
         """
         return run_paths.get_missing_output_input_files()
 
+    @staticmethod
+    @abstractmethod
+    def pre_initialize(compute_paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def post_initialize(compute_paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def perform_computations(compute_paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def pre_post_process(compute_paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def post_post_process(compute_paths: ComputePaths) -> bool:
+        return True
+
 
 @dataclass(frozen=True)
 class SlurmParams(ArgParseable, JsonSerializable):
@@ -432,7 +457,8 @@ class SlurmParams(ArgParseable, JsonSerializable):
             args: argparse.Namespace,
             **fallbacks: Any,
     ):
-        return super().from_args(
+        arg_parseable: ArgParseable = super()
+        return arg_parseable.from_args(
             args,
             batch_size=cls.job.default_batch_size(),
             memory=cls.job.default_memory(),
@@ -592,7 +618,7 @@ class ProjectPaths(ArgParseable, JsonSerializable):
 
 @dataclass(frozen=True)
 class RunPaths(ArgParseable, JsonSerializable):
-    """
+    """Paths of a run.
 
     Attributes
     ----------
@@ -1094,7 +1120,9 @@ class Paths(ArgParseable, JsonSerializable):
 
         return ArrayJobData.write_array_job_data(
             self.attempt_array_job_data_dir,
-            self.run_paths.get_missing_output_input_files(file_extension=".tsv"),
+            self.run_paths.get_missing_output_input_files(
+                output_file_extension=".tsv"
+            ),
             batch_size,
         )
 
@@ -1164,6 +1192,45 @@ class Paths(ArgParseable, JsonSerializable):
 
 
 @dataclass(frozen=True)
+class ComputePaths:
+    compute_dir: Path
+
+    @property
+    def input_dir(self) -> Path:
+        """Path to input directory on the compute node."""
+        return self.compute_dir / "input"
+
+    @property
+    def output_dir(self) -> Path:
+        """Path to output directory on the compute node."""
+        return self.compute_dir / "output"
+
+    def call_function_on_inputs(
+            self,
+            func: Callable[[Path], Any],
+            log_name: str | None = None
+    ) -> None:
+        """Helper method for calling a function on all inputs for compute job.
+
+        Parameters
+        ----------
+        func
+            Function to call for each input. Path to input file will be passed
+            to the function.
+        log_name
+            Optional name to use in log message. Logging skipped if not
+            provided.
+        """
+
+        input_files: list[Path] = sorted(self.input_dir.iterdir())
+        for input_index, input_file in enumerate(input_files, start=1):
+            if log_name:
+                logger.info(f"Performing {log_name} on {input_file.stem} "
+                            f"({input_index}/{len(input_files)})...")
+            func(input_file)
+
+
+@dataclass(frozen=True)
 class ArrayJobData(JsonSerializable):
     """Base class for storing data for an array job.
 
@@ -1174,6 +1241,7 @@ class ArrayJobData(JsonSerializable):
     input_paths
         Paths to inputs to process in job.
     """
+
     array_job_index: int
     input_paths: tuple[Path, ...]
 
@@ -1191,6 +1259,7 @@ class ArrayJobData(JsonSerializable):
         int
             Greatest array job index.
         """
+
         return max(
             [int(file.stem) for file in array_job_data_dir.glob("*.json")],
             default=None,
@@ -1231,6 +1300,7 @@ class ArrayJobData(JsonSerializable):
         int
             Number of jobs that will be needed to process all inputs.
         """
+
         return ceil(len(input_paths) / batch_size)
 
     @classmethod

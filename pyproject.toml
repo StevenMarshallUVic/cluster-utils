@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cam-cluster-utils"
-version = "1.0.0b85"
+version = "1.0.0b86"
 authors = [
   { name="Steven Marshall", email="stevenmarshall@uvic.ca" },
 ]
@@ -24,9 +24,10 @@ where = ["src"]
 cluster_utils = ["scripts/*", "templates/*"]
 
 [project.scripts]
+cluster-update = "cluster_utils._cli:update"
 cluster-init = "cluster_utils._cli:initialize_project"
 cluster-run = "cluster_utils._cli:perform_run"
-cluster-update = "cluster_utils._cli:update"
+cluster-compute = "cluster_utils._cli:perform_compute"
 
 [project.urls]
 Homepage = "https://github.com/StevenMarshallUVic/cluster-utils"

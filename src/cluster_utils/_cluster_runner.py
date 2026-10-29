@@ -1,22 +1,22 @@
 import argparse
-import logging
+import os
 import shutil
 import subprocess
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Self, ClassVar
+from typing import Self, ClassVar
 
-from cluster_utils import get_environment_default_log_level, init_logger
+from cluster_utils import get_environment_default_log_level, init_logger, \
+    SLURM_JOB_NAME_ENV_VAR
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths
 from cluster_utils.data import ArrayJobData, Paths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
-    SlurmJob
+    SlurmJob, ComputePaths
 from cluster_utils.utils import EnumAction, _RunnerStage, \
     run_subprocess_command, ArgParseable
+from cluster_utils.workflow import FullWorkflow
 from cluster_utils.workflow_utils import find_subclasses_in_script, ArgParser
-from cluster_utils.workflow import FullWorkflow, LoginWorkflow, ComputeWorkflow
 
 logger = init_logger(Path(__file__).name)
 
@@ -212,14 +212,13 @@ class _LoginRunner(ArgParser):
             logger.warning(f"One or more {job.job_name()} slurm jobs failed.")
         return success
 
-    def submit_single_job(self, job: SlurmJob) -> int:
+    def submit_single_job(self, job: type[SlurmJob]) -> int:
         """Submit a single slurm job to handle the compute portion of the job.
         """
         raise NotImplementedError()
 
     def post_process(self) -> bool:
-        """Virtual method for performing post-processing after the compute
-        stage completes.
+        """Performing post-processing after the compute stage completes.
 
         Returns
         -------
@@ -251,7 +250,7 @@ class _ComputeRunner(ArgParser):
     """Abstract class that handles running the portion of a run that occurs
     on a cluster's compute node."""
 
-    compute_dir: Path
+    compute_paths: ComputePaths
     job_data: ArrayJobData
 
     @staticmethod
@@ -267,25 +266,44 @@ class _ComputeRunner(ArgParser):
     def static_argument_sources() -> list[type[ArgParseable]]:
         return [ArrayJobInstanceParams]
 
-    @property
-    def compute_input_dir(self) -> Path:
-        """Path to input directory on the compute node."""
-        return self.compute_dir / "input"
+    def _get_current_job(self, jobs: list[type[SlurmJob]]) -> type[SlurmJob]:
+        job_name = os.getenv(SLURM_JOB_NAME_ENV_VAR)
+        if job_name is None:
+            raise RuntimeError(
+                f"Could not find '{SLURM_JOB_NAME_ENV_VAR}' in environment. "
+                "Are you sure this is being run on a compute node?"
+            )
 
-    @property
-    def compute_output_dir(self) -> Path:
-        """Path to output directory on the compute node."""
-        return self.compute_dir / "output"
+        job_name_to_job = {j.job_name(): j for j in jobs}
+        if job_name not in job_name_to_job:
+            raise KeyError(
+                f"Could not find SlurmJob with name '{job_name}'. "
+                f"Jobs: {list(job_name_to_job.keys())}"
+            )
 
-    def run(self) -> bool:
+        return job_name_to_job[job_name]
+
+    def run(self, full_workflow: type[FullWorkflow]) -> bool:
         """Perform a compute run."""
 
-        # TODO: Get which SlurmJob is currently running by comparing
-        #  SLURM_JOB_NAME environment variable to `job.job_name()`
+        job = self._get_current_job(full_workflow().login_workflow.jobs())
+
+        if not job.pre_initialize(self.compute_paths):
+            return False
         if not self._initialize_file_structure():
             return False
+        if not job.post_initialize(self.compute_paths):
+            return False
 
-        return self.perform_computations()
+        if not job.perform_computations(self.compute_paths):
+            return False
+
+        if not job.pre_post_process(self.compute_paths):
+            return False
+        if not job.post_post_process(self.compute_paths):
+            return False
+
+        return True
 
     def _initialize_file_structure(self) -> bool:
         """Initialize compute file structure.
@@ -296,63 +314,20 @@ class _ComputeRunner(ArgParser):
         """
 
         logger.debug("Initializing compute node file structure...")
-        if not self.compute_dir.is_dir():
+        if not self.compute_paths.compute_dir.is_dir():
             raise NotADirectoryError(
-                f"Could not find compute dir at '{self.compute_dir}'."
+                f"Could not find compute dir at "
+                f"'{self.compute_paths.compute_dir}'."
             )
 
         # Initialize input dir
-        self.compute_input_dir.mkdir()
+        self.compute_paths.input_dir.mkdir()
         for path in self.job_data.input_paths:
-            shutil.copy2(path, self.compute_input_dir)
+            shutil.copy2(path, self.compute_paths.input_dir)
 
         # Initialize output dir
-        self.compute_output_dir.mkdir()
-
-        # Perform custom initialization
-        return self.initialize_compute_file_structure()
-
-    def initialize_compute_file_structure(self) -> bool:
-        """Virtual method to allow for performing additional initialization.
-
-        Returns
-        -------
-        Whether initialization was successful.
-        """
+        self.compute_paths.output_dir.mkdir()
         return True
-
-    def perform_computations(self) -> bool:
-        """Abstract method for performing the compute logic on the compute node.
-
-        Returns
-        -------
-        Whether compute logic was performed successful.
-        """
-        return True
-
-    def call_function_on_inputs(
-            self,
-            func: Callable[[Path], Any],
-            log_name: str | None = None
-    ) -> None:
-        """Helper method for calling a function on all inputs for compute job.
-
-        Parameters
-        ----------
-        func
-            Function to call for each input. Path to input file will be passed
-            to the function.
-        log_name
-            Optional name to use in log message. Logging skipped if not
-            provided.
-        """
-
-        input_files: list[Path] = sorted(self.compute_input_dir.iterdir())
-        for input_index, input_file in enumerate(input_files, start=1):
-            if log_name:
-                logger.info(f"Performing {log_name} on {input_file.stem} "
-                            f"({input_index}/{len(input_files)})...")
-            func(input_file)
 
     @classmethod
     def from_custom_args(cls, args: argparse.Namespace, **kwargs) -> Self:
@@ -368,7 +343,7 @@ class _ComputeRunner(ArgParser):
             )
         )
         return cls(
-            compute_dir=array_job_params.compute_dir,
+            compute_paths=ComputePaths(array_job_params.compute_dir),
             job_data=job_data,
         )
 
@@ -393,7 +368,7 @@ class _ClusterRunners:
                 _LoginRunner.workflow = self._workflow_class
                 return _LoginRunner.from_args().run()
             case _RunnerStage.COMPUTE:
-                return _ComputeRunner.from_args().run()
+                return _ComputeRunner.from_args().run(self._workflow_class)
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 
