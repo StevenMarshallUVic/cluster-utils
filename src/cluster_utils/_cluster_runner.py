@@ -57,28 +57,29 @@ class _LoginRunner(ArgParser):
         Whether login tasks were run successfully.
         """
 
-        if not self.workflow().login_workflow.pre_initialize():
+        run_paths = self.paths.run_paths
+        if not self.workflow().login_workflow.pre_initialize(run_paths):
             return False
         if not self.initialize():
             return False
-        if not self.workflow().login_workflow.post_initialize():
+        if not self.workflow().login_workflow.post_initialize(run_paths):
             return False
 
-        if not self.workflow().login_workflow.pre_job_submission():
+        if not self.workflow().login_workflow.pre_job_submission(run_paths):
             return False
         if not self.submit_compute_jobs():
             logger.warning(
                 "One or more compute jobs failed, skipping post processing."
             )
             return False
-        if not self.workflow().login_workflow.post_job_submission():
+        if not self.workflow().login_workflow.post_job_submission(run_paths):
             return False
 
-        if not self.workflow().login_workflow.pre_post_process():
+        if not self.workflow().login_workflow.pre_post_process(run_paths):
             return False
         if not self.post_process():
             return False
-        if not self.workflow().login_workflow.post_post_process():
+        if not self.workflow().login_workflow.post_post_process(run_paths):
             return False
 
         return True
@@ -280,6 +281,8 @@ class _ComputeRunner(ArgParser):
     def run(self) -> bool:
         """Perform a compute run."""
 
+        # TODO: Get which SlurmJob is currently running by comparing
+        #  SLURM_JOB_NAME environment variable to `job.job_name()`
         if not self._initialize_file_structure():
             return False
 

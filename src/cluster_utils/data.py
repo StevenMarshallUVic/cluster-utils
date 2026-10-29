@@ -1044,6 +1044,7 @@ class Paths(ArgParseable, JsonSerializable):
 
     project_paths: ProjectPaths
     run_paths: RunPaths
+    # TODO: Move under RunPaths?
     attempt_paths: AttemptPaths
 
     def initialize_run(self) -> None:
