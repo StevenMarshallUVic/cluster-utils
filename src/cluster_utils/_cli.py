@@ -67,6 +67,8 @@ def perform_run(arguments: Iterable[str] | None = None):
 
     logger.info("Performing run...")
     paths = ProjectPaths(get_project_dir())
+    update(["--venv", paths.venv_paths.venv_dir])
+
     if not is_project_paths_initialized(paths):
         raise RuntimeError(
             "Trying to perform run on project that has not been initialized. "
