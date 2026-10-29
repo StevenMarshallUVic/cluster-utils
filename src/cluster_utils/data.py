@@ -979,7 +979,7 @@ class AttemptPaths:
     def get_job_log_file_path(self, job: type[SlurmJob]) -> Path:
         match job.job_type():
             case SlurmJobType.ARRAY:
-                return self.logs_dir / f"{job.job_name()}-%A_%a.log.log"
+                return self.logs_dir / f"{job.job_name()}-%A_%a.log"
             case SlurmJobType.SINGLE:
                 return self.logs_dir / f"{job.job_name()}.log"
             case _:

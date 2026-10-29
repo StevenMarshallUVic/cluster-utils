@@ -176,8 +176,7 @@ class _LoginRunner(ArgParser):
         compute_job_args = job.compute_job_args()
         wrap_args = [
             subprocess.list2cmdline([arg]) for arg in [
-                # TODO: Confirm this works
-                f"cd {self.paths.project_paths.project_dir}",
+                "cd", self.paths.project_paths.project_dir,
                 "&&", "cluster-run",
                 "--paths-json",  self.paths.attempt_paths.paths_json,
                 "--project-dir",  self.paths.project_paths.project_dir,
