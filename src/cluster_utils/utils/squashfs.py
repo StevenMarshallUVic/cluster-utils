@@ -19,17 +19,18 @@ MKSQUASHFS_COMMAND = "mksquashfs"
 class SquashFSCompressionType(StrEnum):
     """Compression algorithms supported by SquashFS."""
 
-    ZLIB = "zlib"
-    LZ4 = "lz4"
+    GZIP = "gzip"
     LZO = "lzo"
+    LZ4 = "lz4"
     XZ = "xz"
+    ZLIB = "zlib"
     ZSTD = "zstd"
 
 
 def create_squashfs(
         source_dir: Path,
         output_file: Path,
-        compression: SquashFSCompressionType = SquashFSCompressionType.ZSTD,
+        compression: SquashFSCompressionType = SquashFSCompressionType.GZIP,
 ) -> bool:
     """Creates a SquashFS filesystem image from a source directory.
 
@@ -41,7 +42,6 @@ def create_squashfs(
         Where to write created .squashfs file.
     compression
         Compression algorithm to use.
-        Options include: 'zlib', 'lz4', 'lzo', 'xz', 'zstd'
 
     Returns
     -------
@@ -55,7 +55,7 @@ def create_squashfs(
             f"Are you sure it's installed?"
         )
 
-    logger.info("Creating SquashFS image: %s...", output_file)
+    logger.info("Creating SquashFS image at '%s'...", output_file)
     subprocess.run(
         [
             "mksquashfs", source_dir, output_file,
