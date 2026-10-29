@@ -10,9 +10,9 @@ from cluster_utils import get_environment_default_log_level, init_logger, \
     SLURM_JOB_NAME_ENV_VAR
 from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths
-from cluster_utils.data import ArrayJobData, Paths, SlurmParams, \
+from cluster_utils.data import ArrayJobData, LoginPaths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
-    SlurmJob, ComputePaths
+    SlurmJob, ComputePaths, ComputeNodePaths
 from cluster_utils.utils import EnumAction, _RunnerStage, \
     run_subprocess_command, ArgParseable
 from cluster_utils.workflow import FullWorkflow
@@ -26,7 +26,7 @@ class _LoginRunner(ArgParser):
     """Abstract class that handles running the portion of a run that occurs
     in the background on a login node."""
 
-    paths: Paths
+    paths: LoginPaths
     job_name_to_slurm_params: dict[str, SlurmParams]
 
     workflow: ClassVar[type[FullWorkflow]]
@@ -42,7 +42,7 @@ class _LoginRunner(ArgParser):
 
     @staticmethod
     def static_argument_sources() -> list[type[ArgParseable]]:
-        static_argument_sources: list[type[ArgParseable]] = [Paths]
+        static_argument_sources: list[type[ArgParseable]] = [LoginPaths]
         for job in _LoginRunner.workflow().login_workflow.jobs():
             static_argument_sources.append(
                 SlurmParams.create_subclass_from_job(job)
@@ -57,29 +57,28 @@ class _LoginRunner(ArgParser):
         Whether login tasks were run successfully.
         """
 
-        run_paths = self.paths.run_paths
-        if not self.workflow().login_workflow.pre_initialize(run_paths):
+        if not self.workflow().login_workflow.pre_initialize(self.paths):
             return False
         if not self.initialize():
             return False
-        if not self.workflow().login_workflow.post_initialize(run_paths):
+        if not self.workflow().login_workflow.post_initialize(self.paths):
             return False
 
-        if not self.workflow().login_workflow.pre_job_submission(run_paths):
+        if not self.workflow().login_workflow.pre_job_submission(self.paths):
             return False
         if not self.submit_compute_jobs():
             logger.warning(
                 "One or more compute jobs failed, skipping post processing."
             )
             return False
-        if not self.workflow().login_workflow.post_job_submission(run_paths):
+        if not self.workflow().login_workflow.post_job_submission(self.paths):
             return False
 
-        if not self.workflow().login_workflow.pre_post_process(run_paths):
+        if not self.workflow().login_workflow.pre_post_process(self.paths):
             return False
         if not self.post_process():
             return False
-        if not self.workflow().login_workflow.post_post_process(run_paths):
+        if not self.workflow().login_workflow.post_post_process(self.paths):
             return False
 
         return True
@@ -197,12 +196,7 @@ class _LoginRunner(ArgParser):
             return None
 
         logger.info(f"Waiting for {job.job_name()} slurm array job to complete...")
-        print(args) # TODO: Temp debug
         success = run_subprocess_command(args, logger=logger)
-        # success = run_subprocess_command(
-        #     args=["bash"] + wrap_args,
-        #     logger=logger,
-        # )
 
         # TODO: Return slurm job ID
 
@@ -240,7 +234,10 @@ class _LoginRunner(ArgParser):
             job_name_to_inst[job.job_name()] = slurm_params.from_args(args)
 
         return cls(
-            paths=Paths.from_custom_args(args, cls.workflow().project_name),
+            paths=LoginPaths.from_custom_args(
+                args,
+                cls.workflow().project_name
+            ),
             job_name_to_slurm_params=job_name_to_inst,
         )
 
@@ -250,7 +247,7 @@ class _ComputeRunner(ArgParser):
     """Abstract class that handles running the portion of a run that occurs
     on a cluster's compute node."""
 
-    compute_paths: ComputePaths
+    paths: ComputePaths
     job_data: ArrayJobData
 
     @staticmethod
@@ -288,19 +285,19 @@ class _ComputeRunner(ArgParser):
 
         job = self._get_current_job(full_workflow().login_workflow.jobs())
 
-        if not job.pre_initialize(self.compute_paths):
+        if not job.pre_initialize(self.paths):
             return False
         if not self._initialize_file_structure():
             return False
-        if not job.post_initialize(self.compute_paths):
+        if not job.post_initialize(self.paths):
             return False
 
-        if not job.perform_computations(self.compute_paths):
+        if not job.perform_computations(self.paths):
             return False
 
-        if not job.pre_post_process(self.compute_paths):
+        if not job.pre_post_process(self.paths):
             return False
-        if not job.post_post_process(self.compute_paths):
+        if not job.post_post_process(self.paths):
             return False
 
         return True
@@ -314,19 +311,19 @@ class _ComputeRunner(ArgParser):
         """
 
         logger.debug("Initializing compute node file structure...")
-        if not self.compute_paths.compute_dir.is_dir():
+        if not self.paths.compute_node_paths.compute_dir.is_dir():
             raise NotADirectoryError(
                 f"Could not find compute dir at "
-                f"'{self.compute_paths.compute_dir}'."
+                f"'{self.paths.compute_node_paths.compute_dir}'."
             )
 
         # Initialize input dir
-        self.compute_paths.input_dir.mkdir()
+        self.paths.compute_node_paths.input_dir.mkdir()
         for path in self.job_data.input_paths:
-            shutil.copy2(path, self.compute_paths.input_dir)
+            shutil.copy2(path, self.paths.compute_node_paths.input_dir)
 
         # Initialize output dir
-        self.compute_paths.output_dir.mkdir()
+        self.paths.compute_node_paths.output_dir.mkdir()
         return True
 
     @classmethod
@@ -335,15 +332,20 @@ class _ComputeRunner(ArgParser):
             raise ValueError(f"Unexpected kwargs: {kwargs}.")
 
         array_job_params = ArrayJobInstanceParams.from_args(args)
-        paths = Paths.from_json(array_job_params.paths_json)
+        login_paths = LoginPaths.from_json(array_job_params.paths_json)
         job_data = ArrayJobData.from_json(
             ArrayJobData.build_json_path(
-                paths.array_job_data_root_dir,
+                login_paths.array_job_data_root_dir,
                 array_job_params.array_job_index,
             )
         )
         return cls(
-            compute_paths=ComputePaths(array_job_params.compute_dir),
+            paths=ComputePaths(
+                login_paths=login_paths,
+                compute_node_paths=ComputeNodePaths(
+                    array_job_params.compute_dir
+                ),
+            ),
             job_data=job_data,
         )
 

@@ -341,7 +341,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
 
     def build_array_job_command(
             self,
-            paths: Paths,
+            paths: LoginPaths,
             wrap_args: list[str],
             dependencies: SlurmDependencies | None = None,
     ) -> list[str] | None:
@@ -1055,7 +1055,7 @@ class AttemptPaths:
 
 
 @dataclass(frozen=True)
-class Paths(ArgParseable, JsonSerializable):
+class LoginPaths(ArgParseable, JsonSerializable):
     """Paths used in a run.
 
     Attributes
@@ -1192,7 +1192,7 @@ class Paths(ArgParseable, JsonSerializable):
 
 
 @dataclass(frozen=True)
-class ComputePaths:
+class ComputeNodePaths:
     compute_dir: Path
 
     @property
@@ -1228,6 +1228,12 @@ class ComputePaths:
                 logger.info(f"Performing {log_name} on {input_file.stem} "
                             f"({input_index}/{len(input_files)})...")
             func(input_file)
+
+
+@dataclass(frozen=True)
+class ComputePaths:
+    login_paths: LoginPaths
+    compute_node_paths: ComputeNodePaths
 
 
 @dataclass(frozen=True)

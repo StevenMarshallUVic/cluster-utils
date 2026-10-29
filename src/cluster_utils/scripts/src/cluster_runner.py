@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Self
 
 from cluster_utils import get_environment_default_log_level, init_logger
-from cluster_utils.data import ArrayJobData, Input, Paths, SlurmParams
+from cluster_utils.data import ArrayJobData, Input, LoginPaths, SlurmParams
 from cluster_utils.runners import ClusterRunners, ComputeRunner, LoginRunner
 from cluster_utils.utils import ArgParseable
 
@@ -38,7 +38,7 @@ class CustomInput(Input):
 
 
 @dataclass(frozen=True)
-class CustomPaths(Paths):
+class CustomPaths(LoginPaths):
     """Custom paths."""
 
     # [Required] Name of project
@@ -138,7 +138,7 @@ class CustomComputeRunner(ComputeRunner):
     @classmethod
     def from_custom_args(cls, args: argparse.Namespace) -> Self:
         array_job_params = ArrayJobInstanceParams.from_args(args)
-        paths = Paths.from_json(array_job_params.paths_json)
+        paths = LoginPaths.from_json(array_job_params.paths_json)
         job_data = ArrayJobData.from_json(
             ArrayJobData.build_json_path(
                 paths.array_job_data_root_dir,
