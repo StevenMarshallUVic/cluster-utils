@@ -1201,6 +1201,10 @@ class ComputeNodePaths:
         return self.compute_dir / "input"
 
     @property
+    def inputs(self) -> list[Path]:
+        return sorted(self.input_dir.iterdir())
+
+    @property
     def output_dir(self) -> Path:
         """Path to output directory on the compute node."""
         return self.compute_dir / "output"

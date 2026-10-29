@@ -322,6 +322,18 @@ class _ComputeRunner(ArgParser):
         for path in self.job_data.input_paths:
             shutil.copy2(path, self.paths.compute_node_paths.input_dir)
 
+        # Validate that all inputs are now found on compute node
+        if len(self.paths.compute_node_paths.inputs) != len(self.job_data.input_paths):
+            raise RuntimeError(
+                f"Expected {len(self.job_data.input_paths)} "
+                f"inputs in compute input dir, "
+                f"found {len(self.paths.compute_node_paths.inputs)}. "
+                f"Expected inputs: "
+                f"{[p.name for p in self.job_data.input_paths]}, "
+                f"inputs found: "
+                f"{[p.name for p in self.paths.compute_node_paths.inputs]}."
+            )
+
         # Initialize output dir
         self.paths.compute_node_paths.output_dir.mkdir()
         return True
