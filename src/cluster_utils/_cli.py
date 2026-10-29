@@ -97,7 +97,7 @@ def perform_run(arguments: Iterable[str] | None = None):
     paths = ProjectPaths(get_project_dir())
 
     logger.info("Updating package...")
-    update(["--venv", paths.venv_paths.venv_dir])
+    update(["--venv", str(paths.venv_paths.venv_dir)])
 
     if not is_project_paths_initialized(paths):
         raise RuntimeError(
