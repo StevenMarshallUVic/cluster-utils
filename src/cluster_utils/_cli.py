@@ -18,6 +18,7 @@ from cluster_utils._paths import ProjectPaths, VenvPaths, ComputePaths
 from cluster_utils._utils import ON_CLUSTER
 from cluster_utils._utils.venv import VenvCreator
 from cluster_utils._utils import io, project_init
+from cluster_utils.data import add_argument_to_parser
 from cluster_utils.utils import PythonPackage
 
 if ON_CLUSTER:
@@ -41,7 +42,10 @@ def update(arguments: Iterable[str] | None = None) -> None:
         description="Handles updating cluster-utils package to latest version.",
         add_help=True,
     )
-    venv_arg = parser.add_argument(
+    venv_arg = add_argument_to_parser(
+        parser,
+        None,
+        None,
         "-v", "--venv",
         dest="venv",
         help="(Optional) Virtual environment to update package within. When "
@@ -140,7 +144,10 @@ def perform_compute(arguments: Iterable[str] | None = None):
         description="Handles launching compute logic on compute node.",
         add_help=True,
     )
-    venv_arg = parser.add_argument(
+    slurm_tmp_dir_arg = add_argument_to_parser(
+        parser,
+        None,
+        None,
         "--slurm-tmp-dir",
         dest="slurm_tmp_dir",
         help="(Optional) Path to directory allocated for slurm job. When not "
@@ -151,7 +158,7 @@ def perform_compute(arguments: Iterable[str] | None = None):
     args = parser.parse_args(arguments)
     if args.slurm_tmp_dir is None:
         raise argparse.ArgumentError(
-            venv_arg,
+            slurm_tmp_dir_arg,
             f"Could not find '{SLURM_TMP_DIR_ENV_VAR}' in environment. "
             "Must provide '--slurm-tmp-dir' flag."
         )

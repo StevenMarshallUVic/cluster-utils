@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from cluster_utils import get_project_dir
+from cluster_utils.data import add_argument_to_parser
 from cluster_utils.utils import ArgParseable
 from cluster_utils._paths import ProjectPaths
 from cluster_utils._utils import io
@@ -37,9 +38,14 @@ class ProjectInitParams(ArgParseable):
     def add_arguments(
             cls,
             parser: argparse.ArgumentParser,
-            group: argparse._ArgumentGroup | None = None
+            group: argparse._ArgumentGroup | None = None,
+            prefix: str | None = None,
     ) -> None:
-        parser.add_argument(
+        # TODO: Allow retrieving account from `SBATCH_ACCOUNT` env variable.
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
             "-a", ACCOUNT_FLAG,
             help="(Optional) Account to charge slurm usage to. "
                  "If not provided, you will be required to specify an account "
@@ -47,7 +53,10 @@ class ProjectInitParams(ArgParseable):
             type=str,
             required=False,
         )
-        parser.add_argument(
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
             "--project_dir",
             help="(Optional) Root directory of project to initialize. "
                  "When not provided, infers project directory from environment.",
@@ -55,14 +64,20 @@ class ProjectInitParams(ArgParseable):
             default=get_project_dir(),
             required=False,
         )
-        parser.add_argument(
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
             "-f", "--force",
             help="(Optional) Whether to overwrite any existing files that conflict with "
                  "files generated during initialization.",
             action=argparse.BooleanOptionalAction,
             default=False,
         )
-        parser.add_argument(
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
             "--no-input",
             help="(Optional) Bypass any manual input prompts.",
             action="store_true",

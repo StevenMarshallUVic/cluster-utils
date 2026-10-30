@@ -81,7 +81,7 @@ def add_argument_to_parser(
         prefix: str | None = None,
         *name_or_flags,
         **kwargs,
- ) -> None:
+ ) -> argparse.Action:
     """Wrapper around argparse `add_argument()` method with support for
     the following optional functionality:
     - Add arguments to group
@@ -108,7 +108,8 @@ def add_argument_to_parser(
             for n in name_or_flags
             if (n.startswith("--") or not n.startswith("-"))
         ]
-    target.add_argument(
+
+    return target.add_argument(
         *name_or_flags,
         **kwargs
     )
