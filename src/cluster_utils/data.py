@@ -353,7 +353,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
                 "Not on cluster, "
                 "running in current thread instead of submitting to sbatch."
             )
-            return ["bash"] + wrap_args
+            return wrap_args
 
         remaining_input_files = self.job.get_missing_output_input_files(
             paths.run_paths,
