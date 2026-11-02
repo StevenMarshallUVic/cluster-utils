@@ -28,8 +28,9 @@ def run_subprocess_command(
         args: str | Path | list[str | Path],
         logger: logging.Logger | None = None,
         output_logging_level: int = logging.DEBUG,
+        shell: bool = False,
 ) -> bool:
-    """
+    """Run command using subprocess.
 
     Parameters
     ----------
@@ -44,6 +45,8 @@ def run_subprocess_command(
         output of the command as long as the provided logger's level is INFO
         or lower.
         Does nothing if `logger` is not supplied.
+    shell
+         When True, the specified command will be executed through the shell.
 
     Returns
     -------
@@ -58,6 +61,7 @@ def run_subprocess_command(
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        shell=shell,
     ) as process:
         if process.stdout is not None and log_output:
             for line in process.stdout:

@@ -1,5 +1,6 @@
 import argparse
 import os
+import random
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -13,8 +14,8 @@ from cluster_utils._paths import ProjectPaths
 from cluster_utils.data import ArrayJobData, LoginPaths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
     SlurmJob, ComputePaths, ComputeNodePaths
-from cluster_utils.utils import EnumAction, _RunnerStage, \
-    run_subprocess_command, ArgParseable
+from cluster_utils.utils import EnumAction, _RunnerStage, ArgParseable, \
+    ON_CLUSTER
 from cluster_utils.workflow import FullWorkflow
 from cluster_utils.workflow_utils import find_subclasses_in_script, ArgParser
 
@@ -196,14 +197,40 @@ class _LoginRunner(ArgParser):
             return None
 
         logger.info(f"Waiting for {job.job_name()} slurm array job to complete...")
-        # TODO: Return slurm job ID
-        success = run_subprocess_command(args, logger=logger)
+        log_output = logger.isEnabledFor(
+            output_logging_level) if logger else False
+        with (subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                shell=True,
+        ) as process):
+            if process.stdout is not None and log_output:
+                for line in process.stdout:
+                    print(line, end="")
+
+            return_code = process.wait()
+            if return_code != 0:
+                log_message = f"Command failed with return code {return_code}."
+                if process.stdout is not None and not log_output:
+                    log_message += " See console output below:"
+
+                logger.error(log_message)
+
+        stdout = process.stdout
+        # TODO: Handle job ID parsing
+        job_id = (int(stdout.read()) if stdout else None) \
+            if ON_CLUSTER \
+            else random.randint(int(1E7), int(1E8 - 1))
 
         if success:
             logger.info(f"{job.job_name()} slurm jobs completed!")
         else:
             logger.warning(f"One or more {job.job_name()} slurm jobs failed.")
-        return success
+
+        return job_id
 
     def submit_single_job(self, job: type[SlurmJob]) -> int:
         """Submit a single slurm job to handle the compute portion of the job.
