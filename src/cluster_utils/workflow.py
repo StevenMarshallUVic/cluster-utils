@@ -67,7 +67,35 @@ class LoginWorkflow(ABC):
 
 @dataclass
 class ComputeWorkflow(ABC):
-    pass
+    @staticmethod
+    @abstractmethod
+    def pre_initialize(paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def post_initialize(paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def pre_computation(paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def post_computation(paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def pre_post_process(paths: ComputePaths) -> bool:
+        return True
+
+    @staticmethod
+    @abstractmethod
+    def post_post_process(paths: ComputePaths) -> bool:
+        return True
 
 
 @dataclass

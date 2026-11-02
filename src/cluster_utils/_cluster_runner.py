@@ -283,19 +283,32 @@ class _ComputeRunner(ArgParser):
     def run(self, full_workflow: type[FullWorkflow]) -> bool:
         """Perform a compute run."""
 
+        compute_workflow = full_workflow().compute_workflow
         job = self._get_current_job(full_workflow().login_workflow.jobs())
 
+        if not compute_workflow.pre_initialize(self.paths):
+            return False
         if not job.pre_initialize(self.paths):
             return False
         if not self._initialize_file_structure():
             return False
+        if not compute_workflow.post_initialize(self.paths):
+            return False
         if not job.post_initialize(self.paths):
             return False
 
+        if not compute_workflow.pre_computation(self.paths):
+            return False
         if not job.perform_computations(self.paths):
             return False
+        if not compute_workflow.post_computation(self.paths):
+            return False
 
+        if not compute_workflow.pre_post_process(self.paths):
+            return False
         if not job.pre_post_process(self.paths):
+            return False
+        if not compute_workflow.post_post_process(self.paths):
             return False
         if not job.post_post_process(self.paths):
             return False
