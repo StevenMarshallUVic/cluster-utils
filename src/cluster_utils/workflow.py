@@ -4,7 +4,7 @@ from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from pathlib import Path
 
-from cluster_utils.data import SlurmJob, RunPaths, LoginPaths
+from cluster_utils.data import SlurmJob, RunPaths, LoginPaths, ComputePaths
 
 
 class LoginWorkflow(ABC):
