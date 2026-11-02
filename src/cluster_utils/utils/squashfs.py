@@ -14,6 +14,7 @@ from cluster_utils import init_logger
 logger = init_logger(__name__)
 
 MKSQUASHFS_COMMAND = "mksquashfs"
+SQUASHFUSE_COMMAND = "squashfuse"
 
 
 class SquashFSCompressionType(StrEnum):
@@ -56,13 +57,63 @@ def create_squashfs(
         )
 
     logger.info("Creating SquashFS image at '%s'...", output_file)
-    subprocess.run(
+    process = subprocess.run(
         [
-            "mksquashfs", source_dir, output_file,
+            MKSQUASHFS_COMMAND, source_dir, output_file,
             "-comp", compression,
             "-noappend"
         ],
         check=True
     )
-    logger.info("SquashFS image created successfully!")
-    return True
+    if process.returncode == 0:
+        logger.info("SquashFS image created successfully!")
+        return True
+    else:
+        logger.warning(
+            f"SquashFS image creation failed with error code "
+            f"{process.returncode}."
+        )
+        return False
+
+
+def squashfuse_mount(squashfs_image: Path, mount_dir: Path):
+    """Mount a SquashFS filesystem image to a directory using squashfuse.
+
+    Parameters
+    ----------
+    squashfs_image
+        Image to mount.
+    mount_dir
+        Where to mount image to.
+
+    Returns
+    -------
+    bool
+        Whether image was successfully mounted.
+    """
+
+    if not squashfs_image.is_file():
+        raise FileNotFoundError(
+            "Cannot mount SquashFS image that does not exist."
+        )
+
+    if not shutil.which(MKSQUASHFS_COMMAND):
+        raise EnvironmentError(
+            f"Command '{MKSQUASHFS_COMMAND}' not found. "
+            f"Are you sure it's installed?"
+        )
+
+    mount_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Mounting SquashFS image to '%s'...", mount_dir)
+    process = subprocess.run(
+        [
+            SQUASHFUSE_COMMAND, squashfs_image, mount_dir,
+        ],
+        check=True
+    )
+    if process.returncode == 0:
+        logger.info("SquashFS image created successfully!")
+        return True
+    else:
+        logger.warning(f"SquashFS image creation failed with error code {process.returncode}.")
+        return False
