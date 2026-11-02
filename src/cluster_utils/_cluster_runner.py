@@ -210,8 +210,6 @@ class _LoginRunner(ArgParser):
                     print(line, end="")
 
             return_code = process.wait()
-            if return_code != 0:
-                logger.warning(f"Command failed with return code {return_code}.")
 
         stdout = process.stdout
         # TODO: Handle job ID parsing
@@ -219,7 +217,9 @@ class _LoginRunner(ArgParser):
             if ON_CLUSTER \
             else random.randint(int(1E7), int(1E8 - 1))
 
-        if success:
+        # TODO: Determine whether this means job submission was successful or
+        #  the actual jobs were successful
+        if return_code == 0:
             logger.info(f"{job.job_name()} slurm jobs completed!")
         else:
             logger.warning(f"One or more {job.job_name()} slurm jobs failed.")
