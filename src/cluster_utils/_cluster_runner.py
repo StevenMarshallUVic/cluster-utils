@@ -197,8 +197,6 @@ class _LoginRunner(ArgParser):
             return None
 
         logger.info(f"Waiting for {job.job_name()} slurm array job to complete...")
-        log_output = logger.isEnabledFor(
-            output_logging_level) if logger else False
         with (subprocess.Popen(
                 args,
                 stdout=subprocess.PIPE,
@@ -207,17 +205,13 @@ class _LoginRunner(ArgParser):
                 bufsize=1,
                 shell=True,
         ) as process):
-            if process.stdout is not None and log_output:
+            if process.stdout is not None:
                 for line in process.stdout:
                     print(line, end="")
 
             return_code = process.wait()
             if return_code != 0:
-                log_message = f"Command failed with return code {return_code}."
-                if process.stdout is not None and not log_output:
-                    log_message += " See console output below:"
-
-                logger.error(log_message)
+                logger.warning(f"Command failed with return code {return_code}.")
 
         stdout = process.stdout
         # TODO: Handle job ID parsing
