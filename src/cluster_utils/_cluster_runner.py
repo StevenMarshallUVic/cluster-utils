@@ -196,9 +196,8 @@ class _LoginRunner(ArgParser):
             return None
 
         logger.info(f"Waiting for {job.job_name()} slurm array job to complete...")
-        success = run_subprocess_command(args, logger=logger)
-
         # TODO: Return slurm job ID
+        success = run_subprocess_command(args, logger=logger)
 
         if success:
             logger.info(f"{job.job_name()} slurm jobs completed!")

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar, cast, Self
 
 from cluster_utils import init_logger, get_project_dir
-from cluster_utils.utils import ArgParseable, JsonSerializable
+from cluster_utils.utils import ArgParseable, JsonSerializable, ON_CLUSTER
 
 logger = init_logger(Path(__file__).name)
 
@@ -348,6 +348,13 @@ class SlurmParams(ArgParseable, JsonSerializable):
     ) -> list[str] | None:
         """Submit a slurm array job to handle the compute portion of the job."""
 
+        if not ON_CLUSTER:
+            logger.warning(
+                "Not on cluster, "
+                "running in current thread instead of submitting to sbatch."
+            )
+            return ["bash"] + wrap_args
+
         remaining_input_files = self.job.get_missing_output_input_files(
             paths.run_paths,
         )
@@ -377,6 +384,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
             f"--output={log_file}",
             f"--error={log_file}",
             f"--wrap={' '.join(wrap_args)}",
+            "--parsable",
             "--wait",
         ]
         if self.gpus is not None:
