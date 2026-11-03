@@ -186,9 +186,9 @@ class _LoginRunner(ArgParser):
             subprocess.list2cmdline([arg]) for arg in [
                 "cd", self.paths.project_paths.project_dir,
                 "&&", "cluster-compute",
-                "--run-paths-json",  self.paths.run_paths.run_paths_json,
                 "--project-dir",  self.paths.project_paths.project_dir,
                 "--runner-stage",  _RunnerStage.COMPUTE.value,
+                "--run-paths-json",  self.paths.run_paths.run_paths_json,
             ] + (compute_job_args if compute_job_args is not None else [])
         ]
 
