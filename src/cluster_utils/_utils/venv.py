@@ -92,7 +92,7 @@ class VenvCreator:
             self._pip_arguments + ["--version"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         return process.stdout.strip()
 
@@ -138,10 +138,18 @@ class VenvCreator:
         if self.paths.venv_dir.is_dir():
             return
 
-        subprocess.run(
+        process = subprocess.run(
             [self.active_python, "-m", "venv", self.paths.venv_dir],
-            check=True
+            check=True,
+            capture_output=True,
         )
+        if process.returncode != 0:
+            raise RuntimeError(
+                f"Python virtual environment initialization failed with "
+                f"return code {process.returncode}. "
+                f"Stdout:\n{process.stdout}\n"
+                f"Stderr:\n{process.stderr}\n"
+            )
 
     def upgrade_pip(self) -> None:
         """Upgrade pip to latest version."""
@@ -152,10 +160,17 @@ class VenvCreator:
 
         args.extend(["--upgrade", "pip"])
 
-        subprocess.run(
+        process = subprocess.run(
             args,
-            check=True
+            check=True,
+            capture_output=True,
         )
+        if process.returncode != 0:
+            raise RuntimeError(
+                f"Pip upgrade failed with return code {process.returncode}. "
+                f"Stdout:\n{process.stdout}\n"
+                f"Stderr:\n{process.stderr}\n"
+            )
 
     def install_requirements(self) -> None:
         """Install python package requirements."""
@@ -165,10 +180,18 @@ class VenvCreator:
             args.append("--no-index")
 
         args.extend(self._all_requirements_args)
-        subprocess.run(
+        process = subprocess.run(
             args,
-            check=True
+            check=True,
+            capture_output=True,
         )
+        if process.returncode != 0:
+            raise RuntimeError(
+                f"Python requirement installation failed with "
+                f"return code {process.returncode}. "
+                f"Stdout:\n{process.stdout}\n"
+                f"Stderr:\n{process.stderr}\n"
+            )
 
     def source_venv(self) -> None:
         """Push virtual environment to head of PATH to mimic sourcing.
