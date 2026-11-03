@@ -12,7 +12,8 @@ from math import ceil
 from pathlib import Path
 from typing import Any, ClassVar, cast, Self
 
-from cluster_utils import init_logger, get_project_dir, SLURM_TMP_DIR_ENV_VAR
+from cluster_utils import init_logger, get_project_dir, SLURM_TMP_DIR_ENV_VAR, \
+    SLURM_ARRAY_JOB_INDEX_ENV_VAR
 from cluster_utils.utils import ArgParseable, JsonSerializable
 
 logger = init_logger(Path(__file__).name)
