@@ -349,11 +349,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
         """Submit a slurm array job to handle the compute portion of the job."""
 
         if not ON_CLUSTER:
-            logger.warning(
-                "Not on cluster, "
-                "running in current thread instead of submitting to sbatch."
-            )
-            return wrap_args
+            raise EnvironmentError("Cannot run array job on non-cluster.")
 
         remaining_input_files = self.job.get_missing_output_input_files(
             paths.run_paths,
