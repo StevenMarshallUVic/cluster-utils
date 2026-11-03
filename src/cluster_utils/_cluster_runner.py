@@ -200,22 +200,13 @@ class _LoginRunner(ArgParser):
             "Waiting for %s Slurm array job to complete...",
             job.job_name(),
         )
-        print(args) # TODO: temp debug
         process = subprocess.run(
             args,
             capture_output=True,
             text=True,
         )
 
-        job_id = None
-        stdout = process.stdout
-        stderr = process.stderr
-        if stdout or stderr:
-            # TODO: Handle job ID parsing
-            print(stdout)# TODO: TEMP DEBUG
-            print(stderr)# TODO: TEMP DEBUG
-            job_id = int(stdout)
-
+        job_id = int(process.stdout) if process.stdout else None
         # TODO: Determine whether this means job submission was successful or
         #  the actual jobs were successful
         if process.returncode == 0:
