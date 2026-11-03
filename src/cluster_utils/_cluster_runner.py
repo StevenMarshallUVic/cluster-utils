@@ -205,7 +205,6 @@ class _LoginRunner(ArgParser):
             args,
             capture_output=True,
             text=True,
-            shell=True,
         )
 
         job_id = None

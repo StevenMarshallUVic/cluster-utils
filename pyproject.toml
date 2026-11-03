@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cam-cluster-utils"
-version = "1.0.0b114"
+version = "1.0.0b115"
 authors = [
   { name="Steven Marshall", email="stevenmarshall@uvic.ca" },
 ]
@@ -32,3 +32,6 @@ cluster-compute = "cluster_utils._cli:perform_compute"
 [project.urls]
 Homepage = "https://github.com/StevenMarshallUVic/cluster-utils"
 Issues = "https://github.com/StevenMarshallUVic/cluster-utils/issues"
+
+
+['sbatch', '--job-name=data_pipeline', '--account=rrg-prof', '--cpus-per-task=1', '--mem=20G', '--time=02:00:00', '--array=0-0', '--output=/scratch/name/alphafold3/runs/test/attempts/attempt_1/logs/data_pipeline-%A_%a.log', '--error=/scratch/name/alphafold3/runs/test/attempts/attempt_1/logs/data_pipeline-%A_%a.log', '--parsable', '--wrap="cd /project/id/name/alphafold3 && cluster-compute --paths-json /scratch/name/alphafold3/runs/test/attempts/attempt_1/params/paths.json --project-dir /project/id/name/alphafold3 --runner-stage COMPUTE"']

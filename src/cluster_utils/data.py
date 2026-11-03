@@ -380,7 +380,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
             f"--output={log_file}",
             f"--error={log_file}",
             "--parsable",
-            f'--wrap="{' '.join(wrap_args)}"',
+            f"--wrap={' '.join(wrap_args)}",
         ]
         if self.gpus is not None:
             args.append(f"--gpus={self.gpus}")
