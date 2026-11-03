@@ -173,7 +173,7 @@ class _LoginRunner(ArgParser):
     ) -> int | None:
         """Submit a slurm array job to handle the compute portion of the job."""
 
-        self.paths.attempt_paths.to_json(self.paths.attempt_paths.paths_json)
+        self.paths.to_json(self.paths.run_paths.paths_json)
         compute_job_args = job.compute_job_args()
         wrap_args = [
             subprocess.list2cmdline([arg]) for arg in [
