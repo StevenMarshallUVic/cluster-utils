@@ -29,7 +29,7 @@ class _LoginRunner(ArgParser):
     paths: LoginPaths
     job_name_to_slurm_params: dict[str, SlurmParams]
 
-    workflow: ClassVar[type[FullWorkflow]]
+    full_workflow: ClassVar[type[FullWorkflow]]
 
     @staticmethod
     def parser_name() -> str:
@@ -43,7 +43,7 @@ class _LoginRunner(ArgParser):
     @staticmethod
     def static_argument_sources() -> list[type[ArgParseable]]:
         static_argument_sources: list[type[ArgParseable]] = [LoginPaths]
-        for job in _LoginRunner.workflow().login_workflow.jobs():
+        for job in _LoginRunner.full_workflow().login_workflow.jobs():
             static_argument_sources.append(
                 SlurmParams.create_subclass_from_job(job)
             )
@@ -57,28 +57,28 @@ class _LoginRunner(ArgParser):
         Whether login tasks were run successfully.
         """
 
-        if not self.workflow().login_workflow.pre_initialize(self.paths):
+        if not self.full_workflow().login_workflow.pre_initialize(self.paths):
             return False
         if not self.initialize():
             return False
-        if not self.workflow().login_workflow.post_initialize(self.paths):
+        if not self.full_workflow().login_workflow.post_initialize(self.paths):
             return False
 
-        if not self.workflow().login_workflow.pre_job_submission(self.paths):
+        if not self.full_workflow().login_workflow.pre_job_submission(self.paths):
             return False
         if not self.submit_compute_jobs():
             logger.warning(
                 "One or more compute jobs failed, skipping post processing."
             )
             return False
-        if not self.workflow().login_workflow.post_job_submission(self.paths):
+        if not self.full_workflow().login_workflow.post_job_submission(self.paths):
             return False
 
-        if not self.workflow().login_workflow.pre_post_process(self.paths):
+        if not self.full_workflow().login_workflow.pre_post_process(self.paths):
             return False
         if not self.post_process():
             return False
-        if not self.workflow().login_workflow.post_post_process(self.paths):
+        if not self.full_workflow().login_workflow.post_post_process(self.paths):
             return False
 
         return True
@@ -104,7 +104,7 @@ class _LoginRunner(ArgParser):
                     "Input directory not initialized, input path required."
                 )
 
-            self.workflow().login_workflow.transfer_input_to_run(
+            self.full_workflow().login_workflow.transfer_input_to_run(
                 input_path,
                 self.paths.run_paths,
             )
@@ -128,7 +128,7 @@ class _LoginRunner(ArgParser):
             Whether compute jobs completed successfully.
         """
 
-        if len(self.workflow().login_workflow.jobs()) <= 0:
+        if len(self.full_workflow().login_workflow.jobs()) <= 0:
             logger.info("No jobs to submit!")
             return True
 
@@ -138,7 +138,7 @@ class _LoginRunner(ArgParser):
         )
 
         job_to_slurm_id: dict[type[SlurmJob], int | None] = {}
-        for job in self.workflow().login_workflow.jobs():
+        for job in self.full_workflow().login_workflow.jobs():
             depends: list[SlurmDependency] = []
             for depend_job, depend_type in job.job_dependencies().items():
                 if depend_job not in job_to_slurm_id:
@@ -248,7 +248,7 @@ class _LoginRunner(ArgParser):
             raise ValueError(f"Unexpected keyword arguments: {kwargs}.")
 
         job_name_to_inst = {}
-        for job in cls.workflow().login_workflow.jobs():
+        for job in cls.full_workflow().login_workflow.jobs():
             slurm_params = SlurmParams.create_subclass_from_job(job)
             if job.job_name() in job_name_to_inst:
                 raise KeyError("Multiple SlurmJobs with same job_name.")
@@ -258,7 +258,7 @@ class _LoginRunner(ArgParser):
         return cls(
             paths=LoginPaths.from_custom_args(
                 args,
-                cls.workflow().project_name
+                cls.full_workflow().project_name
             ),
             job_name_to_slurm_params=job_name_to_inst,
         )
@@ -272,7 +272,7 @@ class _ComputeRunner(ArgParser):
     paths: ComputePaths
     job_data: ArrayJobData
 
-    workflow: ClassVar[type[FullWorkflow]]
+    full_workflow: ClassVar[type[FullWorkflow]]
 
     @staticmethod
     def parser_name() -> str:
@@ -431,10 +431,10 @@ class _ClusterRunners:
 
         match self._stage:
             case _RunnerStage.LOGIN:
-                _LoginRunner.workflow = self._workflow_class
+                _LoginRunner.full_workflow = self._workflow_class
                 return _LoginRunner.from_args().run()
             case _RunnerStage.COMPUTE:
-                _ComputeRunner.workflow = self._workflow_class
+                _ComputeRunner.full_workflow = self._workflow_class
                 return _ComputeRunner.from_args().run()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
