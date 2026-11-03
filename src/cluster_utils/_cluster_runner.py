@@ -187,7 +187,7 @@ class _LoginRunner(ArgParser):
                 "cd", self.paths.project_paths.project_dir,
                 "&&", "cluster-compute",
                 "--project-dir",  self.paths.project_paths.project_dir,
-                "--runner-stage",  _RunnerStage.COMPUTE,
+                "--runner-stage",  _RunnerStage.COMPUTE.name,
                 "--attempt-index", str(self.paths.attempt_paths.attempt_index),
                 "--run-paths-json",  self.paths.run_paths.run_paths_json,
             ] + (compute_job_args if compute_job_args is not None else [])
