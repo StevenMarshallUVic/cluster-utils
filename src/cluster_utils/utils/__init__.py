@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 import argparse
-import enum
 import json
 import logging
 import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, fields, MISSING
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
 from pathlib import Path
 from typing import Any
 
 from cluster_utils._utils import ON_CLUSTER
 
 
-class _RunnerStage(Enum):
+class _RunnerStage(StrEnum):
     """Stages of cluster program."""
 
     LOGIN = auto()
@@ -283,7 +282,7 @@ class EnumAction(argparse.Action):
             raise ValueError(
                 "'type' must be assigned an Enum when using EnumAction"
             )
-        if not issubclass(enum_type, enum.Enum):
+        if not issubclass(enum_type, Enum):
             raise TypeError("'type' must be an Enum when using EnumAction")
 
         # Generate choices from the Enum
