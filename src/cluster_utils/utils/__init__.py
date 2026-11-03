@@ -317,7 +317,7 @@ class JsonSerializable(ABC):
         """
         return ClusterJsonEncoder
 
-    def to_json(self, output_json: Path) -> None:
+    def to_json(self, output_json: Path, parents: bool = True) -> None:
         """Write JSON file with all fields of dataclass serialized as a
         dictionary.
 
@@ -325,8 +325,12 @@ class JsonSerializable(ABC):
         ----------
         output_json
             Path to write JSON file to.
+        parents
+            Whether to create parent directory if it doesn't exist.
         """
 
+        if parents:
+            output_json.parent.mkdir(exist_ok=True, parents=True)
         with open(output_json, "w") as json_file:
             json.dump(asdict(self), json_file, cls=self.json_encoder())
 

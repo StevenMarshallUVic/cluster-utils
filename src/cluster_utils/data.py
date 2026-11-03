@@ -950,7 +950,7 @@ class RunPaths(ArgParseable, JsonSerializable):
 
 
 @dataclass(frozen=True)
-class AttemptPaths:
+class AttemptPaths(JsonSerializable):
     """Paths for a run attempt.
 
     Attributes
