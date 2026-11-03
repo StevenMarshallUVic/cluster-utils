@@ -187,7 +187,7 @@ class _LoginRunner(ArgParser):
                 "cd", self.paths.project_paths.project_dir,
                 "&&", "cluster-compute",
                 "--project-dir",  self.paths.project_paths.project_dir,
-                "--runner-stage",  _RunnerStage.COMPUTE.value,
+                "--runner-stage",  _RunnerStage.COMPUTE,
                 "--attempt-index", str(self.paths.attempt_paths.attempt_index),
                 "--run-paths-json",  self.paths.run_paths.run_paths_json,
             ] + (compute_job_args if compute_job_args is not None else [])
@@ -209,7 +209,7 @@ class _LoginRunner(ArgParser):
             logger.warning("Cannot run array job on non-cluster, skipping...")
             return None
         logger.info(
-            "Waiting for %s Slurm array job to complete...",
+            "Waiting for '%s' array job to complete...",
             job.job_name(),
         )
         process = subprocess.run(
