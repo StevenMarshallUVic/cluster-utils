@@ -37,6 +37,8 @@ def update(arguments: Iterable[str] | None = None) -> None:
     """
     # TODO: Write tests
 
+    logger.info("Updating package...")
+
     parser = argparse.ArgumentParser(
         prog="Cluster Updater",
         description="Handles updating cluster-utils package to latest version.",
@@ -62,6 +64,7 @@ def update(arguments: Iterable[str] | None = None) -> None:
         )
 
     VenvCreator(VenvPaths(args.venv)).install_requirements()
+    logger.info("Package updated successfully!")
 
 
 def initialize_project(arguments: Iterable[str] | None = None) -> None:
@@ -100,7 +103,6 @@ def perform_run(arguments: Iterable[str] | None = None):
 
     paths = ProjectPaths(get_project_dir())
 
-    logger.info("Updating package...")
     update(["--venv", str(paths.venv_paths.venv_dir)])
 
     if not is_project_paths_initialized(paths):
@@ -155,7 +157,7 @@ def perform_compute(arguments: Iterable[str] | None = None):
         type=Path,
         default=os.environ.get(SLURM_TMP_DIR_ENV_VAR),
     )
-    args = parser.parse_args(arguments)
+    args, _ = parser.parse_known_args(arguments)
     if args.slurm_tmp_dir is None:
         raise argparse.ArgumentError(
             slurm_tmp_dir_arg,

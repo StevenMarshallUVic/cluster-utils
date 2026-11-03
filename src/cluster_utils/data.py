@@ -375,7 +375,8 @@ class SlurmParams(ArgParseable, JsonSerializable):
             f"--account={paths.project_paths.account}",
             f"--cpus-per-task={self.cpus_per_task}",
             f"--mem={self.memory}",
-            f"--time={self.time}",
+            # f"--time={self.time}",
+            f"--time=05:00",# TODO: Temp debug
             f"--array=0-{max_array_index}",
             f"--output={log_file}",
             f"--error={log_file}",
