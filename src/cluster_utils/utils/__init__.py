@@ -157,44 +157,14 @@ class PythonPackage:
         ]
 
 
-class ClusterJsonEncoder(json.JSONEncoder, ABC):
+class ClusterJsonEncoder(json.JSONEncoder):
     """JSON encoder for serializing and deserializing non-standard variables."""
 
-    @classmethod
-    def custom_encode(cls, item) -> Any | None:
-        """Virtual method that can be overridden in child classes to add
-        custom encoding logic.
-
-        Parameters
-        ----------
-        item
-            Item to attempt to encode.
-
-        Returns
-        -------
-        Any
-            Encoded item,
-            or None if item was not supported by custom encoding logic.
-        """
-        return None
-
-    @classmethod
-    def custom_decode(cls, item) -> Any | None:
-        """Virtual method that can be overridden in child classes to add
-        custom decoding logic.
-
-        Parameters
-        ----------
-        item
-            Item to attempt to decode.
-
-        Returns
-        -------
-        Any
-            Decoded item,
-            or None if item was not supported by custom decoding logic.
-        """
-        return None
+    CUSTOM_ENCODING_TYPE_NAME_TO_TYPE: dict[str, type] = {
+        "Path": Path,
+        "RunnerStage": _RunnerStage,
+        "tuple": tuple,
+    }
 
     @classmethod
     def _encode(cls, item) -> Any:
@@ -210,10 +180,6 @@ class ClusterJsonEncoder(json.JSONEncoder, ABC):
         Any
             Encoded item.
         """
-
-        custom_encode = cls.custom_encode(item)
-        if custom_encode is not None:
-            return custom_encode
 
         if isinstance(item, Path):
             return {"__type__": "Path", "value": str(item)}
@@ -249,18 +215,12 @@ class ClusterJsonEncoder(json.JSONEncoder, ABC):
         """
 
         if "__type__" in item:
-            custom_decode = cls.custom_decode(item)
-            if custom_decode is not None:
-                return custom_decode
-
-            default_decodings = {
-                "Path": Path(item["value"]),
-                "RunnerStage": _RunnerStage(item["value"]),
-                "tuple": tuple(item["value"]),
-            }
-            default_decodings.get(item["__type__"], None)
-            if default_decodings is not None:
-                return default_decodings
+            item_type: type | None = cls.CUSTOM_ENCODING_TYPE_NAME_TO_TYPE.get(
+                item["__type__"],
+                None
+            )
+            if item_type is not None:
+                return item_type(item["value"])
 
             raise ValueError(
                 f"Unexpected JSON custom type: '{item['__type__']}'"
