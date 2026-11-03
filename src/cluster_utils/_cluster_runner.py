@@ -374,7 +374,7 @@ class _ComputeRunner(ArgParser):
         login_paths = LoginPaths.from_json(array_job_params.paths_json)
         job_data = ArrayJobData.from_json(
             ArrayJobData.build_json_path(
-                login_paths.array_job_data_root_dir,
+                login_paths.attempt_paths.array_job_data_root_dir,
                 array_job_params.array_job_index,
             )
         )
