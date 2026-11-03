@@ -12,7 +12,9 @@ from math import ceil
 from pathlib import Path
 from typing import Any, ClassVar, cast, Self
 
-from cluster_utils import init_logger, get_project_dir
+from pygments.styles import default
+
+from cluster_utils import init_logger, get_project_dir, SLURM_TMP_DIR_ENV_VAR
 from cluster_utils.utils import ArgParseable, JsonSerializable
 
 logger = init_logger(Path(__file__).name)
@@ -1388,29 +1390,9 @@ class ArrayJobInstanceParams(ArgParseable):
             parser,
             group,
             prefix,
-            "--compute-dir",
-            dest="compute_dir",
-            help="Root directory of compute node.",
-            required=True,
-            type=Path,
-        )
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
             "--attempt-index",
             dest="attempt_index",
             help="1-based index of current attempt for run.",
-            required=True,
-            type=int,
-        )
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "--array-job-index",
-            dest="array_job_index",
-            help="0-based index of array job instance.",
             required=True,
             type=int,
         )
@@ -1423,4 +1405,28 @@ class ArrayJobInstanceParams(ArgParseable):
             help="Path to JSON file containing paths for run.",
             required=True,
             type=Path,
+        )
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--compute-dir",
+            dest="compute_dir",
+            help="(Optional) Path to directory allocated for slurm job. "
+                 f"When not provided, uses '{SLURM_TMP_DIR_ENV_VAR}' "
+                 "environment variable.",
+            type=Path,
+            default=os.getenv(SLURM_TMP_DIR_ENV_VAR),
+        )
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--array-job-index",
+            dest="array_job_index",
+            help="(Optional) 0-based index of array job instance. "
+                 f"When not provided, uses '{SLURM_ARRAY_JOB_INDEX_ENV_VAR}' "
+                 "environment variable.",
+            type=int,
+            default=os.getenv(SLURM_ARRAY_JOB_INDEX_ENV_VAR),
         )

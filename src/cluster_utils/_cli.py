@@ -53,7 +53,7 @@ def update(arguments: Iterable[str] | None = None) -> None:
         help="(Optional) Virtual environment to update package within. When "
              f"not provided, uses '{VENV_ENV_VAR}' environment variable.",
         type=Path,
-        default=os.environ.get(VENV_ENV_VAR),
+        default=os.getenv(VENV_ENV_VAR),
     )
     args = parser.parse_args(arguments)
     if args.venv is None:
@@ -146,26 +146,26 @@ def perform_compute(arguments: Iterable[str] | None = None):
         description="Handles launching compute logic on compute node.",
         add_help=True,
     )
-    slurm_tmp_dir_arg = add_argument_to_parser(
+    compute_dir_arg = add_argument_to_parser(
         parser,
         None,
         None,
-        "--slurm-tmp-dir",
-        dest="slurm_tmp_dir",
+        "--compute-dir",
+        dest="compute_dir",
         help="(Optional) Path to directory allocated for slurm job. When not "
              f"provided, uses '{SLURM_TMP_DIR_ENV_VAR}' environment variable.",
         type=Path,
-        default=os.environ.get(SLURM_TMP_DIR_ENV_VAR),
+        default=os.getenv(SLURM_TMP_DIR_ENV_VAR),
     )
     args, _ = parser.parse_known_args(arguments)
-    if args.slurm_tmp_dir is None:
+    if args.compute_dir is None:
         raise argparse.ArgumentError(
-            slurm_tmp_dir_arg,
+            compute_dir_arg,
             f"Could not find '{SLURM_TMP_DIR_ENV_VAR}' in environment. "
-            "Must provide '--slurm-tmp-dir' flag."
+            f"Must provide '--compute-dir' flag."
         )
 
-    compute_paths = ComputePaths(args.slurm_tmp_dir)
+    compute_paths = ComputePaths(args.compute_dir)
     project_paths = ProjectPaths(get_project_dir())
     config = ClusterConfig.from_toml(project_paths.cluster_config_toml)
 
