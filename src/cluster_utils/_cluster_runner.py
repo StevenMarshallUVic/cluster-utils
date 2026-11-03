@@ -196,26 +196,32 @@ class _LoginRunner(ArgParser):
             )
             return None
 
-        logger.info(f"Waiting for {job.job_name()} slurm array job to complete...")
+        logger.info(
+            "Waiting for %s Slurm array job to complete...",
+            job.job_name(),
+        )
         with (subprocess.Popen(
                 args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1,
                 shell=True,
         ) as process):
-            if process.stdout is not None:
-                for line in process.stdout:
-                    print(line, end="")
+            # if process.stdout is not None:
+            #     for line in process.stdout:
+            #         print(line, end="")
 
             return_code = process.wait()
 
-        stdout = process.stdout
-        # TODO: Handle job ID parsing
-        job_id = (int(stdout.read()) if stdout else None) \
-            if ON_CLUSTER \
-            else random.randint(int(1E7), int(1E8 - 1))
+            job_id = None
+            stdout = process.stdout
+            if stdout:
+                stdout_text = stdout.read()
+                # TODO: Handle job ID parsing
+                print(stdout_text)# TODO: TEMP DEBUG
+                job_id = int(stdout.read()) \
+                    if ON_CLUSTER \
+                    else random.randint(int(1E7), int(1E8 - 1))
 
         # TODO: Determine whether this means job submission was successful or
         #  the actual jobs were successful

@@ -1,6 +1,8 @@
 """Create and manage Python virtual environments.
 
 NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
+
+# TODO: Suppress subprocess command outputs by default unless error or debug
 """
 
 from __future__ import annotations
