@@ -196,6 +196,9 @@ class _LoginRunner(ArgParser):
             )
             return None
 
+        if not ON_CLUSTER:
+            logger.warning("Cannot run array job on non-cluster, skipping...")
+            return None
         logger.info(
             "Waiting for %s Slurm array job to complete...",
             job.job_name(),

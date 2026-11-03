@@ -37,7 +37,7 @@ def update(arguments: Iterable[str] | None = None) -> None:
     """
     # TODO: Write tests
 
-    logger.info("Updating package...")
+    logger.info("Updating 'cluster-utils' package...")
 
     parser = argparse.ArgumentParser(
         prog="Cluster Updater",
@@ -64,7 +64,7 @@ def update(arguments: Iterable[str] | None = None) -> None:
         )
 
     VenvCreator(VenvPaths(args.venv)).install_requirements()
-    logger.info("Package updated successfully!")
+    logger.info("Package 'cluster-utils' updated successfully!")
 
 
 def initialize_project(arguments: Iterable[str] | None = None) -> None:
