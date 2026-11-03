@@ -12,7 +12,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from cluster_utils import get_project_dir, init_logger, VENV_ENV_VAR
+from cluster_utils import get_project_dir, init_logger, VENV_ENV_VAR, SLURM_TMP_DIR_ENV_VAR
 from cluster_utils._config import ClusterConfig, EnvironmentConfig
 from cluster_utils._paths import ProjectPaths, VenvPaths, ComputePaths
 from cluster_utils._utils import ON_CLUSTER
