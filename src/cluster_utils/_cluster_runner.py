@@ -200,6 +200,7 @@ class _LoginRunner(ArgParser):
             "Waiting for %s Slurm array job to complete...",
             job.job_name(),
         )
+        print(args) # TODO: temp debug
         process = subprocess.run(
             args,
             capture_output=True,
