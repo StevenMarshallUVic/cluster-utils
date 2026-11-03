@@ -9,10 +9,10 @@ from typing import Self, ClassVar
 from cluster_utils import get_environment_default_log_level, init_logger, \
     SLURM_JOB_NAME_ENV_VAR
 from cluster_utils._config import ClusterConfig
-from cluster_utils._paths import ProjectPaths
+from cluster_utils._paths import ProjectPaths as CliProjectPaths
 from cluster_utils.data import ArrayJobData, LoginPaths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
-    SlurmJob, ComputePaths, ComputeNodePaths, RunPaths, AttemptPaths
+    SlurmJob, ComputePaths, ComputeNodePaths, RunPaths, AttemptPaths, ProjectPaths
 from cluster_utils.utils import EnumAction, _RunnerStage, ArgParseable, \
     ON_CLUSTER
 from cluster_utils.workflow import FullWorkflow
@@ -494,7 +494,7 @@ def main():
     args, _ = _build_argument_parser().parse_known_args()
     logger.setLevel(args.log_level)
 
-    paths = ProjectPaths(args.project_dir)
+    paths = CliProjectPaths(args.project_dir)
     config = ClusterConfig.from_toml(paths.cluster_config_toml)
 
     workflow_class = _find_user_workflow_class(

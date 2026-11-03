@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar, cast, Self
 
 from cluster_utils import init_logger, get_project_dir
-from cluster_utils.utils import ArgParseable, JsonSerializable, ON_CLUSTER
+from cluster_utils.utils import ArgParseable, JsonSerializable
 
 logger = init_logger(Path(__file__).name)
 
@@ -469,7 +469,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
 
 @dataclass(frozen=True)
 class ProjectPaths(ArgParseable, JsonSerializable):
-    """
+    """Paths for the project.
 
     Attributes
     ----------
