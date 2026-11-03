@@ -176,9 +176,21 @@ def perform_compute(arguments: Iterable[str] | None = None):
     )
 
     logger.info("Passing execution to virtual environment...")
+    process = subprocess.Popen(
+        _construct_runner_subprocess_args(project_paths),
+        env=os.environ.copy(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    # Stream log messages
+    if process.stdout:
+        for line in process.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
 
-    # Call runner script within venv
-    subprocess.Popen(_construct_runner_subprocess_args(project_paths))
+    process.wait()
 
 
 def is_project_paths_initialized(
@@ -286,7 +298,7 @@ def initialize_environment(
 
 def _construct_runner_subprocess_args(project_paths: ProjectPaths):
     return [
-        "python", "-m", "cluster_utils._cluster_runner",
+        "python", "-u", "-m", "cluster_utils._cluster_runner",
         "--log-level", str(logger.getEffectiveLevel()),
         "--project-dir", project_paths.project_dir,
     ] + sys.argv[1:]
