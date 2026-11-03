@@ -188,6 +188,7 @@ class _LoginRunner(ArgParser):
                 "&&", "cluster-compute",
                 "--project-dir",  self.paths.project_paths.project_dir,
                 "--runner-stage",  _RunnerStage.COMPUTE.value,
+                "--attempt-index", self.paths.attempt_paths.attempt_index,
                 "--run-paths-json",  self.paths.run_paths.run_paths_json,
             ] + (compute_job_args if compute_job_args is not None else [])
         ]
@@ -271,6 +272,8 @@ class _ComputeRunner(ArgParser):
     paths: ComputePaths
     job_data: ArrayJobData
 
+    workflow: ClassVar[type[FullWorkflow]]
+
     @staticmethod
     def parser_name() -> str:
         return "Compute Runner"
@@ -284,7 +287,8 @@ class _ComputeRunner(ArgParser):
     def static_argument_sources() -> list[type[ArgParseable]]:
         return [ArrayJobInstanceParams]
 
-    def _get_current_job(self, jobs: list[type[SlurmJob]]) -> type[SlurmJob]:
+    @classmethod
+    def _get_current_job(cls) -> type[SlurmJob]:
         job_name = os.getenv(SLURM_JOB_NAME_ENV_VAR)
         if job_name is None:
             raise RuntimeError(
@@ -292,7 +296,10 @@ class _ComputeRunner(ArgParser):
                 "Are you sure this is being run on a compute node?"
             )
 
-        job_name_to_job = {j.job_name(): j for j in jobs}
+        job_name_to_job = {
+            j.job_name(): j
+            for j in cls.full_workflow().login_workflow.jobs()
+        }
         if job_name not in job_name_to_job:
             raise KeyError(
                 f"Could not find SlurmJob with name '{job_name}'. "
@@ -301,11 +308,11 @@ class _ComputeRunner(ArgParser):
 
         return job_name_to_job[job_name]
 
-    def run(self, full_workflow: type[FullWorkflow]) -> bool:
+    def run(self) -> bool:
         """Perform a compute run."""
 
-        compute_workflow = full_workflow().compute_workflow
-        job = self._get_current_job(full_workflow().login_workflow.jobs())
+        compute_workflow = self.full_workflow().compute_workflow
+        job = self._get_current_job()
 
         if not compute_workflow.pre_initialize(self.paths):
             return False
@@ -382,14 +389,17 @@ class _ComputeRunner(ArgParser):
         login_paths = LoginPaths(
             project_paths=ProjectPaths.from_json(run_paths.project_paths_json),
             run_paths=run_paths,
-            attempt_paths=AttemptPaths(
-                array_job_params.array_job_index,
+            attempt_paths=AttemptPaths.from_attempt_index(
                 run_paths.attempts_dir,
+                array_job_params.attempt_index,
             )
         )
+
         job_data = ArrayJobData.from_json(
             ArrayJobData.build_json_path(
-                login_paths.attempt_paths.array_job_data_root_dir,
+                login_paths.attempt_paths.get_array_job_data_dir_for_job(
+                    cls._get_current_job()
+                ),
                 array_job_params.array_job_index,
             )
         )
@@ -424,7 +434,8 @@ class _ClusterRunners:
                 _LoginRunner.workflow = self._workflow_class
                 return _LoginRunner.from_args().run()
             case _RunnerStage.COMPUTE:
-                return _ComputeRunner.from_args().run(self._workflow_class)
+                _ComputeRunner.workflow = self._workflow_class
+                return _ComputeRunner.from_args().run()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 

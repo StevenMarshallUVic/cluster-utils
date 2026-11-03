@@ -1037,12 +1037,22 @@ class AttemptPaths(JsonSerializable):
         ], default=0) + 1
 
     @classmethod
-    def from_next_attempt_dir(cls, attempts_dir: Path) -> Self:
-        attempt_index = cls.calculate_next_attempt_index(attempts_dir)
+    def from_attempt_index(
+            cls,
+            attempts_root_dir: Path,
+            attempt_index: int
+    ) -> Self:
         attempt_dir_name = f"{cls.ATTEMPT_DIR_PREFIX}{attempt_index}"
         return cls(
             attempt_index=attempt_index,
-            attempt_dir=attempts_dir / attempt_dir_name,
+            attempt_dir=attempts_root_dir / attempt_dir_name,
+        )
+
+    @classmethod
+    def from_next_attempt_dir(cls, attempts_root_dir: Path) -> Self:
+        return cls.from_attempt_index(
+            attempts_root_dir,
+            cls.calculate_next_attempt_index(attempts_root_dir),
         )
 
 
@@ -1360,6 +1370,7 @@ class ArrayJobInstanceParams(ArgParseable):
 
     compute_dir: Path
     run_paths_json: Path
+    attempt_index: int
     array_job_index: int
 
     @classmethod
@@ -1382,6 +1393,16 @@ class ArrayJobInstanceParams(ArgParseable):
             help="Root directory of compute node.",
             required=True,
             type=Path,
+        )
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--attempt-index",
+            dest="attempt_index",
+            help="1-based index of current attempt for run.",
+            required=True,
+            type=int,
         )
         add_argument_to_parser(
             parser,
