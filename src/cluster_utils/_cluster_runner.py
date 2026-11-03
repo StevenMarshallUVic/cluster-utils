@@ -204,18 +204,18 @@ class _LoginRunner(ArgParser):
             args,
             capture_output=True,
             text=True,
-            stderr=subprocess.STDOUT,
             check=True,
             shell=True,
         )
 
         job_id = None
         stdout = process.stdout
-        if stdout:
-            stdout_text = stdout.read()
+        stderr = process.stderr
+        if stdout or stderr:
             # TODO: Handle job ID parsing
-            print(stdout_text)# TODO: TEMP DEBUG
-            job_id = int(stdout_text)
+            print(stdout)# TODO: TEMP DEBUG
+            print(stderr)# TODO: TEMP DEBUG
+            job_id = int(stdout)
 
         # TODO: Determine whether this means job submission was successful or
         #  the actual jobs were successful
