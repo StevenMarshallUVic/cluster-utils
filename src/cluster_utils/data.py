@@ -19,9 +19,6 @@ logger = init_logger(Path(__file__).name)
 
 SCRATCH_ENV_VAR = "SCRATCH"
 
-PATHS_JSON_NAME = "paths.json"
-SLURM_PARAMS_JSON_NAME = "slurm_params.json"
-
 
 class SlurmJobType(StrEnum):
     SINGLE = auto()
@@ -636,6 +633,8 @@ class RunPaths(ArgParseable, JsonSerializable):
     run_dir: Path
     input_path: Path | None = None
 
+    SLURM_PARAMS_JSON_SUFFIX = "_slurm_params.json"
+
     @property
     def input_dir(self) -> Path:
         """Directory containing input files for the current run."""
@@ -657,19 +656,25 @@ class RunPaths(ArgParseable, JsonSerializable):
         return self.run_dir / ".params"
 
     @property
-    def paths_json(self) -> Path:
-        """JSON file to write path data for the current run to."""
-        return self.params_dir / PATHS_JSON_NAME
+    def project_paths_json(self) -> Path:
+        """JSON file to write project path data for the current run to."""
+        return self.params_dir / "project_paths.json"
 
     @property
-    def slurm_params_json(self) -> Path:
-        """JSON file to write slurm parameters for the current run to."""
-        return self.params_dir / SLURM_PARAMS_JSON_NAME
+    def run_paths_json(self) -> Path:
+        """JSON file to write run path data for the current run to."""
+        return self.params_dir / "run_paths.json"
 
     @property
     def attempts_dir(self) -> Path:
         """Root directory where attempts for the current run will be saved."""
         return self.run_dir / "attempts"
+
+    def build_slurm_params_json_path(self, job_name: str) -> Path:
+        """JSON file to write slurm parameters for the current run to."""
+
+        # TODO: Add name sanitization to ensure name is valid as file name
+        return self.params_dir / (job_name + self.SLURM_PARAMS_JSON_SUFFIX)
 
     def initialize_run_dir(self) -> None:
         """Initialize run directory."""
@@ -986,21 +991,6 @@ class AttemptPaths(JsonSerializable):
         """Directory of array job data for the current attempt."""
         return self.attempt_dir / "array_job_data"
 
-    @property
-    def params_dir(self) -> Path:
-        """Directory where parameter for the current attempt will be saved."""
-        return self.attempt_dir / "params"
-
-    @property
-    def paths_json(self) -> Path:
-        """JSON file to write path data for the current attempt to."""
-        return self.params_dir / PATHS_JSON_NAME
-
-    @property
-    def slurm_params_json(self) -> Path:
-        """JSON file to write slurm parameters for the current attempt to."""
-        return self.params_dir / SLURM_PARAMS_JSON_NAME
-
     def get_array_job_data_dir_for_job(self, job: type[SlurmJob]) -> Path:
         return self.array_job_data_root_dir / job.job_name()
 
@@ -1087,24 +1077,6 @@ class LoginPaths(ArgParseable, JsonSerializable):
         self.run_paths.initialize_run_dir()
         self.run_paths.initialize_output_dir()
         self.attempt_paths.initialize_attempt_dir()
-
-    # TODO: Figure out if this is still needed?
-    # TODO: Figure out where to call this
-    def initialize_params_dirs(
-            self,
-            param_to_run_json_path: dict[JsonSerializable, Path],
-            param_to_attempt_json_path: dict[JsonSerializable, Path],
-    ) -> None:
-        """Write param JSON files."""
-
-        if self.current_attempt_index == 1:
-            self.run_params_dir.mkdir(parents=True, exist_ok=True)
-            for param, json_path in param_to_run_json_path.items():
-                param.to_json(json_path)
-
-        self.attempt_params_dir.mkdir(parents=True, exist_ok=True)
-        for param, json_path in param_to_attempt_json_path.items():
-            param.to_json(json_path)
 
     # TODO: Figure out if this is still needed?
     def write_missing_results_array_job_data(
@@ -1380,14 +1352,14 @@ class ArrayJobInstanceParams(ArgParseable):
     ----------
     compute_dir
         Path to root directory of compute node.
-    paths_json
-        Path to JSON file with path data for attempt.
+    run_paths_json
+        Path to JSON file with path data for run.
     array_job_index
         Index of array job.
     """
 
     compute_dir: Path
-    paths_json: Path
+    run_paths_json: Path
     array_job_index: int
 
     @classmethod
@@ -1425,9 +1397,9 @@ class ArrayJobInstanceParams(ArgParseable):
             parser,
             group,
             prefix,
-            "--paths-json",
-            dest="paths_json",
-            help="Path to JSON file containing paths for attempt.",
+            "--run-paths-json",
+            dest="run_paths_json",
+            help="Path to JSON file containing paths for run.",
             required=True,
             type=Path,
         )

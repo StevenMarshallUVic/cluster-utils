@@ -1,6 +1,5 @@
 import argparse
 import os
-import random
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -13,7 +12,7 @@ from cluster_utils._config import ClusterConfig
 from cluster_utils._paths import ProjectPaths
 from cluster_utils.data import ArrayJobData, LoginPaths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
-    SlurmJob, ComputePaths, ComputeNodePaths
+    SlurmJob, ComputePaths, ComputeNodePaths, RunPaths, AttemptPaths
 from cluster_utils.utils import EnumAction, _RunnerStage, ArgParseable, \
     ON_CLUSTER
 from cluster_utils.workflow import FullWorkflow
@@ -109,6 +108,15 @@ class _LoginRunner(ArgParser):
                 input_path,
                 self.paths.run_paths,
             )
+
+            # TODO: Use these previous run slurm params instead of always using defaults
+            logger.debug("Initializing run params directory...")
+            self.paths.run_paths.params_dir.mkdir(parents=True)
+            self.paths.project_paths.to_json(self.paths.run_paths.project_paths_json)
+            self.paths.run_paths.to_json(self.paths.run_paths.run_paths_json)
+            for name, params in self.job_name_to_slurm_params.items():
+                params.to_json(self.paths.run_paths.build_slurm_params_json_path(name))
+
         return True
 
     def submit_compute_jobs(self) -> bool:
@@ -173,13 +181,12 @@ class _LoginRunner(ArgParser):
     ) -> int | None:
         """Submit a slurm array job to handle the compute portion of the job."""
 
-        self.paths.to_json(self.paths.run_paths.paths_json)
         compute_job_args = job.compute_job_args()
         wrap_args = [
             subprocess.list2cmdline([arg]) for arg in [
                 "cd", self.paths.project_paths.project_dir,
                 "&&", "cluster-compute",
-                "--paths-json",  self.paths.attempt_paths.paths_json,
+                "--run-paths-json",  self.paths.run_paths.run_paths_json,
                 "--project-dir",  self.paths.project_paths.project_dir,
                 "--runner-stage",  _RunnerStage.COMPUTE.value,
             ] + (compute_job_args if compute_job_args is not None else [])
@@ -371,7 +378,15 @@ class _ComputeRunner(ArgParser):
             raise ValueError(f"Unexpected kwargs: {kwargs}.")
 
         array_job_params = ArrayJobInstanceParams.from_args(args)
-        login_paths = LoginPaths.from_json(array_job_params.paths_json)
+        run_paths: RunPaths = RunPaths.from_json(array_job_params.run_paths_json)
+        login_paths = LoginPaths(
+            project_paths=ProjectPaths.from_json(run_paths.project_paths_json),
+            run_paths=run_paths,
+            attempt_paths=AttemptPaths(
+                array_job_params.array_job_index,
+                run_paths.attempts_dir,
+            )
+        )
         job_data = ArrayJobData.from_json(
             ArrayJobData.build_json_path(
                 login_paths.attempt_paths.array_job_data_root_dir,
