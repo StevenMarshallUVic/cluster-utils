@@ -97,9 +97,9 @@ def squashfuse_mount(squashfs_image: Path, mount_dir: Path):
             "Cannot mount SquashFS image that does not exist."
         )
 
-    if not shutil.which(MKSQUASHFS_COMMAND):
+    if not shutil.which(SQUASHFUSE_COMMAND):
         raise EnvironmentError(
-            f"Command '{MKSQUASHFS_COMMAND}' not found. "
+            f"Command '{SQUASHFUSE_COMMAND}' not found. "
             f"Are you sure it's installed?"
         )
 
@@ -109,11 +109,14 @@ def squashfuse_mount(squashfs_image: Path, mount_dir: Path):
         [
             SQUASHFUSE_COMMAND, squashfs_image, mount_dir,
         ],
-        check=True
+        check=True,
     )
     if process.returncode == 0:
-        logger.info("SquashFS image created successfully!")
+        logger.info("SquashFS image mounted successfully!")
         return True
     else:
-        logger.warning(f"SquashFS image creation failed with error code {process.returncode}.")
+        logger.warning(
+            "SquashFS image mounting failed with error code %s.",
+            process.returncode,
+        )
         return False
