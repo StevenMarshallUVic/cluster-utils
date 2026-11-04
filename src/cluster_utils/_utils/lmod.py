@@ -93,3 +93,8 @@ class LmodModuleLoader:
 
         logger.debug("Loading module '%s'...", module_name)
         module("load", module_name)
+
+    def list_modules(self) -> None:
+        """List all currently loaded modules."""
+
+        module("list")
