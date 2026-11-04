@@ -11,7 +11,7 @@ PACKAGE_URL = "git+https://github.com/StevenMarshallUVic/cluster-utils.git@autom
 root_logger = logging.getLogger()
 
 DEV_LOG_LEVEL = logging.DEBUG
-PROD_LOG_LEVEL = logging.INFO
+PROD_LOG_LEVEL = logging.DEBUG # TODO: Temp debug
 
 VENV_ENV_VAR = "VIRTUAL_ENV"
 SLURM_ARRAY_JOB_INDEX_ENV_VAR = "SLURM_ARRAY_TASK_ID"

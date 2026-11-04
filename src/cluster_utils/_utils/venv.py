@@ -1,8 +1,6 @@
 """Create and manage Python virtual environments.
 
 NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
-
-# TODO: Suppress subprocess command outputs by default unless error or debug
 """
 
 from __future__ import annotations
@@ -12,10 +10,12 @@ import sys
 from dataclasses import dataclass
 from typing import Iterable
 
-from cluster_utils import PACKAGE_NAME, PACKAGE_URL
+from cluster_utils import PACKAGE_NAME, PACKAGE_URL, init_logger
 from cluster_utils._paths import VenvPaths
 from cluster_utils._utils import ON_CLUSTER
 from cluster_utils.utils import PythonPackage
+
+logger = init_logger(__name__)
 
 CLUSTER_UTILS_PACKAGE = PythonPackage(
     name=PACKAGE_NAME,
@@ -135,7 +135,9 @@ class VenvCreator:
     def initialize_base_venv(self) -> None:
         """Generate base virtual environment."""
 
+        logger.debug("Initializing Python virtual environment...")
         if self.paths.venv_dir.is_dir():
+            logger.debug("Virtual environment already exists!")
             return
 
         process = subprocess.run(
@@ -150,10 +152,12 @@ class VenvCreator:
                 f"Stdout:\n{process.stdout}\n"
                 f"Stderr:\n{process.stderr}\n"
             )
+        logger.debug("Virtual environment created!")
 
     def upgrade_pip(self) -> None:
         """Upgrade pip to latest version."""
 
+        logger.debug("Upgrading pip...")
         args = self._pip_arguments + ["install"]
         if ON_CLUSTER:
             args.append("--no-index")
@@ -171,10 +175,15 @@ class VenvCreator:
                 f"Stdout:\n{process.stdout}\n"
                 f"Stderr:\n{process.stderr}\n"
             )
+        logger.debug("Pip upgraded!")
 
     def install_requirements(self) -> None:
         """Install python package requirements."""
 
+        logger.debug(
+            "Installing %s requirements...",
+            len(self._all_requirements),
+        )
         args = self._pip_arguments + ["install"]
         if ON_CLUSTER:
             args.append("--no-index")
@@ -192,6 +201,7 @@ class VenvCreator:
                 f"Stdout:\n{process.stdout}\n"
                 f"Stderr:\n{process.stderr}\n"
             )
+        logger.debug("Requirements installed!")
 
     def source_venv(self) -> None:
         """Push virtual environment to head of PATH to mimic sourcing.
@@ -202,6 +212,7 @@ class VenvCreator:
             If virtual environment directories do not exist.
         """
 
+        logger.debug("Sourcing virtual environment...")
         if not self.paths.venv_bin_dir.is_dir():
             raise NotADirectoryError(
                 f"Could not find venv bin dir at '{self.paths.venv_bin_dir}'."
@@ -215,6 +226,7 @@ class VenvCreator:
             self.paths.venv_bin_dir
         ) + os.pathsep + os.environ["PATH"]
         os.environ["VIRTUAL_ENV"] = str(self.paths.venv_dir)
+        logger.debug("Virtual environment sourced!")
 
     @staticmethod
     def find_missing_requirements(

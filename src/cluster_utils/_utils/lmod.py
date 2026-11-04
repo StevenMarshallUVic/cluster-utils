@@ -14,8 +14,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from cluster_utils import init_logger
 from cluster_utils._utils import LMOD_ENV_VAR
 
+logger = init_logger(__name__)
 
 LMOD_INIT_DIR = Path(os.environ[LMOD_ENV_VAR]).parent.parent / "init"
 if not LMOD_INIT_DIR.is_dir():
@@ -31,17 +33,41 @@ from env_modules_python import module
 class LmodModuleLoader:
     """Handles loading modules using Lmod."""
 
-    def purge_and_load_modules(self, modules: Iterable[str]) -> None:
+    def purge_and_load_modules(
+            self,
+            modules: Iterable[str],
+            force_purge: bool = True,
+    ) -> None:
         """Purge existing modules, and then load modules.
 
         Parameters
         ----------
         modules
             Modules to load.
+        force_purge
+            Whether to force all modules to be purged.
         """
 
-        self.purge_modules()
+        self.purge_modules(force_purge)
         self.load_modules(modules)
+
+    def purge_modules(self, force: bool = True) -> None:
+        """Purge existing modules.
+
+        Parameters
+        ----------
+        force
+            Whether to force all modules to be purged.
+        """
+
+        logger.debug("Purging modules...")
+        args = ["purge"]
+        if force:
+            logger.info("Forcing all modules to be purged...")
+            args.insert(0, "--force")
+
+        module(*args)
+        logger.debug("Modules purged.")
 
     def load_modules(self, modules: Iterable[str]) -> None:
         """Load multiple modules.
@@ -52,14 +78,9 @@ class LmodModuleLoader:
             Modules to load.
         """
 
+        logger.debug("Loading modules...")
         for module in modules:
             self.load_module(module)
-
-    def purge_modules(self) -> None:
-        """Purge existing modules."""
-
-        # TODO: Add support for forcing all modules to be purged ("-f" flag)
-        module("purge")
 
     def load_module(self, module_name: str) -> None:
         """Load a module.
@@ -69,4 +90,6 @@ class LmodModuleLoader:
         module_name
             Module to load.
         """
+
+        logger.debug("Loading module '%s'...", module_name)
         module("load", module_name)
