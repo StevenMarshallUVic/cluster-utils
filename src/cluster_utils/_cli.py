@@ -171,7 +171,7 @@ def perform_compute(arguments: Iterable[str] | None = None):
 
     logger.info("Initializing compute environment...")
     initialize_environment(
-        config.login_environment,
+        config.compute_environment,
         VenvPaths(compute_paths.venv_dir),
     )
 
