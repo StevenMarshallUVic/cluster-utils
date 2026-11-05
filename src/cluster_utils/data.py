@@ -176,14 +176,8 @@ class SlurmDependencies:
         return sep.join([d.as_flag_value() for d in self.dependencies])
 
 
-@dataclass
+@static_class
 class SlurmJob(ABC):
-    # TODO: Turn into class decorator?
-    def __new__(cls, *args, **kwargs):
-        raise TypeError(
-            f"Class '{cls.__name__}' is static and cannot be instantiated."
-        )
-
     @staticmethod
     @abstractmethod
     def job_name() -> str:
@@ -676,6 +670,9 @@ class RunPaths(ArgParseable, JsonSerializable):
 
         # TODO: Add name sanitization to ensure name is valid as file name
         return self.params_dir / (job_name + self.SLURM_PARAMS_JSON_SUFFIX)
+
+    def get_output_dir_for_job(self, job: type[SlurmJob]) -> Path:
+        return self.output_dir / job.job_name()
 
     def initialize_run_dir(self) -> None:
         """Initialize run directory."""

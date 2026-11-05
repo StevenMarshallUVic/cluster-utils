@@ -5,15 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cluster_utils.data import SlurmJob, RunPaths, LoginPaths, ComputePaths
+from cluster_utils._utils import staticclass
 
 
+@staticclass
 class LoginWorkflow(ABC):
-    # TODO: Turn into class decorator?
-    def __new__(cls, *args, **kwargs):
-        raise TypeError(
-            f"Class '{cls.__name__}' is static and cannot be instantiated."
-        )
-
     @staticmethod
     @abstractmethod
     def jobs() -> list[type[SlurmJob]]:

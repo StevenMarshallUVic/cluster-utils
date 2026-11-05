@@ -25,7 +25,3 @@ dist/
 
 # TODO: Temp debug
 .venv-3.9.25/
-cluster_config.toml
-last_run.log
-src/cluster_runner.py
-src/cluster_workflow.py
