@@ -1196,8 +1196,9 @@ class ComputeNodePaths:
 
     def call_function_on_inputs(
             self,
-            func: Callable[[Path], Any],
-            log_name: str | None = None
+            func: Callable[[Path, ...], Any],
+            log_name: str | None = None,
+            **kwargs,
     ) -> None:
         """Helper method for calling a function on all inputs for compute job.
 
@@ -1209,6 +1210,8 @@ class ComputeNodePaths:
         log_name
             Optional name to use in log message. Logging skipped if not
             provided.
+        kwargs
+            Keyword arguments to pass to `func`.
         """
 
         inputs = self.inputs
@@ -1216,7 +1219,7 @@ class ComputeNodePaths:
             if log_name:
                 logger.info(f"Performing {log_name} on {input_file.stem} "
                             f"({input_index}/{len(inputs)})...")
-            func(input_file)
+            func(input_file, **kwargs)
 
 
 @dataclass(frozen=True)
