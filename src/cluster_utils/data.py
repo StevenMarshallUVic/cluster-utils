@@ -176,7 +176,7 @@ class SlurmDependencies:
         return sep.join([d.as_flag_value() for d in self.dependencies])
 
 
-@static_class
+@staticclass
 class SlurmJob(ABC):
     @staticmethod
     @abstractmethod
