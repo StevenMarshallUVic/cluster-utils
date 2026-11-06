@@ -222,9 +222,21 @@ class _LoginRunner(ArgParser):
         # TODO: Determine whether this means job submission was successful or
         #  the actual jobs were successful
         if process.returncode == 0:
-            logger.info(f"{job.job_name()} slurm jobs completed!")
+            logger.info("%s slurm jobs completed!", job.job_name())
         else:
-            logger.warning(f"One or more {job.job_name()} slurm jobs failed.")
+            logger.warning(
+                "One or more %s slurm jobs failed.",
+                job.job_name()
+            )
+            logger.debug("Job args: %s", args)
+            logger.debug(
+                "Job submission stdout:\n%s",
+                process.stdout
+            )
+            logger.debug(
+                "Job submission stderr:\n%s",
+                process.stderr
+            )
 
         return job_id
 
@@ -502,6 +514,7 @@ def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
 
 
 def main():
+    # TODO: Fix help logging
     args, _ = _build_argument_parser().parse_known_args()
     logger.setLevel(args.log_level)
 

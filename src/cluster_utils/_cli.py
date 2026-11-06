@@ -91,6 +91,7 @@ def initialize_project(arguments: Iterable[str] | None = None) -> None:
     )
 
 
+# TODO: Fix help logging
 def perform_run(arguments: Iterable[str] | None = None):
     """Command for submitting a run from a login node.
 
