@@ -479,7 +479,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
 
 
 def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
-    # TODO: Replace hardcoded debug field name
+    # TODO: Replace hardcoded field name
     toml_field_name = "workflow-script"
     target_type: type = FullWorkflow
     if not workflow_script.is_file():

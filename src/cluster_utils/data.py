@@ -484,14 +484,6 @@ class ProjectPaths(ArgParseable, JsonSerializable):
 
     ACCOUNT_TXT_NAME = ".account.txt"
 
-    # TODO: Confirm this can be removed
-    # @property
-    # @abstractmethod
-    # def runner_module_path(self) -> str:
-    #     """Abstract property for specifying the module path to the runner
-    #     script."""
-    #     pass
-
     @property
     def account_file(self):
         """Default path to the account file for this project."""
@@ -501,12 +493,6 @@ class ProjectPaths(ArgParseable, JsonSerializable):
     def src_dir(self) -> Path:
         """Source directory of project."""
         return self.project_dir / "src"
-
-    # TODO: Confirm this can be removed
-    @property
-    def cluster_compute_shell_script(self) -> Path:
-        """Path to shell script for initializing environment on compute node."""
-        return self.src_dir / "compute.sh"
 
     @property
     def scratch_project_dir(self) -> Path:
@@ -1086,28 +1072,6 @@ class LoginPaths(ArgParseable, JsonSerializable):
         self.run_paths.initialize_run_dir()
         self.run_paths.initialize_output_dir()
         self.attempt_paths.initialize_attempt_dir()
-
-    # TODO: Figure out if this is still needed?
-    def write_missing_results_array_job_data(
-            self,
-            batch_size: int
-    ) -> list[Path]:
-        """Write array job data for current attempt based on inputs that are
-        still missing an associated output file.
-
-        Parameters
-        ----------
-        batch_size
-            Number of input files to batch together into each array job.
-        """
-
-        return ArrayJobData.write_array_job_data(
-            self.attempt_array_job_data_dir,
-            self.run_paths.get_missing_output_input_files(
-                output_file_extension=".tsv"
-            ),
-            batch_size,
-        )
 
     @staticmethod
     def compress_and_delete_dir(
