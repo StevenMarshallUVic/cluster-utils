@@ -665,9 +665,62 @@ class RunPaths(ArgParseable, JsonSerializable):
         """Initialize run directory."""
         self.run_dir.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _get_stem_of_path_with_features(
+            path: Path,
+            name_suffix: str | None = None,
+            file_extension: str | None = None
+    ) -> str | None:
+        """Get the stem of a path that has the specified name suffix and
+        file extension, with these features removed.
+
+        Parameters
+        ----------
+        path
+            Path to get stem of.
+        name_suffix
+            (Optional) Expected suffix at end of file name but before first
+            file extension.
+        file_extension
+            (Optional) Expected file extension.
+            Treats outputs as directories if None (default).
+
+        Returns
+        -------
+        str | None
+            Stem of path with name suffix and file extension removed,
+            or None if path doesn't have expected name suffix or file extension.
+        """
+
+        if file_extension:
+            if not path.is_file():
+                return None
+
+            core_name = path.stem \
+                if len(path.suffixes) == 0 \
+                else path.name.split(path.suffixes[0])[0]
+
+            if path.name.removeprefix(core_name) != file_extension:
+                return None
+        else:
+            if not path.is_dir():
+                return None
+
+            core_name = path.stem
+
+        if name_suffix and not core_name.endswith(name_suffix):
+            return None
+
+        if name_suffix:
+            core_name = core_name.removesuffix(name_suffix)
+
+        return core_name
+
     def get_missing_output_input_files(
             self,
             input_dir: Path | None = None,
+            input_name_suffix: str | None = None,
+            input_file_extension: str | None = None,
             output_dir: Path | None = None,
             output_name_suffix: str | None = None,
             output_file_extension: str | None = None,
@@ -679,6 +732,12 @@ class RunPaths(ArgParseable, JsonSerializable):
         input_dir
             (Optional) Path to input directory.
             When not supplied, defaults to root input directory for the run.
+        input_name_suffix
+            (Optional) Suffix at the end of an input file's name,
+            but before the first file extension, if any.
+        input_file_extension
+            (Optional) Extension of input files.
+            Treats inputs as directories if None (default).
         output_dir
             (Optional) Path to output directory.
             When not supplied, defaults to root output directory for the run.
@@ -702,41 +761,25 @@ class RunPaths(ArgParseable, JsonSerializable):
 
         completed_ids = list()
         if output_dir.is_dir():
-            for path in sorted(output_dir.iterdir()):
-                if output_file_extension:
-                    if not path.is_file():
-                        continue
-
-                    path_id = path.stem \
-                        if len(path.suffixes) == 0 \
-                        else path.name.split(path.suffixes[0])[0]
-                    if (output_name_suffix
-                            and not path_id.endswith(output_name_suffix)):
-                        continue
-
-                    file_extension = path.name.removeprefix(path_id)
-                    if file_extension != output_file_extension:
-                        continue
-
-                    completed_ids.append(path_id)
-                else:
-                    if not path.is_dir():
-                        continue
-
-                    if (output_name_suffix
-                            and not path.name.endswith(output_name_suffix)):
-                        continue
-
-                    completed_ids.append(path.stem)
+            for output_path in sorted(output_dir.iterdir()):
+                output_id = self._get_stem_of_path_with_features(
+                    output_path,
+                    output_name_suffix,
+                    output_file_extension
+                )
+                if output_id is not None:
+                    completed_ids.append(output_id)
 
         incomplete_paths = []
         for input_path in sorted(input_dir.iterdir()):
-            input_id = input_path.stem \
-                if len(input_path.suffixes) == 0 \
-                else input_path.name.split(input_path.suffixes[0])[0]
-
+            input_id = self._get_stem_of_path_with_features(
+                input_path,
+                input_name_suffix,
+                input_file_extension
+            )
             if input_id not in completed_ids:
                 incomplete_paths.append(input_path)
+
         return sorted(incomplete_paths)
 
     def initialize_output_dir(self) -> None:
