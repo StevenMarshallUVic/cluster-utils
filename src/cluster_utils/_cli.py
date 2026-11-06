@@ -121,7 +121,7 @@ def perform_run(arguments: Iterable[str] | None = None):
     sys.stdout.flush()
     log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
     subprocess.Popen(
-        _construct_runner_subprocess_args(paths),
+        ["nohup"] + _construct_runner_subprocess_args(paths),
         env=os.environ.copy(),
         stdout=log_fd,
         stderr=subprocess.STDOUT,
