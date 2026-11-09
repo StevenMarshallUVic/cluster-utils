@@ -203,7 +203,7 @@ class _LoginRunner(ArgParser):
                 "&&", "virtualenv", "--no-download", f"{SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}",
                 "&&", "source", f"{SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}/bin/activate",
                 "&&", "pip", "install", "--no-index", "--upgrade", "pip",
-                "&&", "pip", "install", "--no-index", venv.all_requirements_args,
+                "&&", "pip", "install", "--no-index", " ".join(venv.all_requirements_args),
                 "&&", "cluster-compute",
                 "--project-dir",  self.paths.project_paths.project_dir,
                 "--runner-stage",  _RunnerStage.COMPUTE.name,
