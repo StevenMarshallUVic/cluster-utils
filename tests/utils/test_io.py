@@ -1,7 +1,8 @@
+from pathlib import Path
+
 import pytest
 
 from cluster_utils.utils import io
-
 
 
 def test_get_missing_files(tmp_path):
@@ -57,3 +58,45 @@ def test_is_file_contents_exactly(tmp_path):
     missing_file = tmp_path / "missing_file.txt"
     with pytest.raises(FileNotFoundError):
         io.does_file_contain_exactly(missing_file, target)
+
+
+def test_sanitize_name():
+    assert io.sanitize_name("test_name-1") == "test_name-1"
+    assert io.sanitize_name("test name-1") == "test_name-1"
+    assert io.sanitize_name("test/name-1") == "name-1"
+    assert io.sanitize_name("*test#name-1&") == "_test_name-1_"
+    assert io.sanitize_name(".test name-1.") == ".test_name-1"
+    assert io.sanitize_name("test name-1.") == "test_name-1"
+
+    assert io.sanitize_name(
+        "test name-1",
+        replacement="-"
+    ) == "test-name-1"
+
+    with pytest.raises(ValueError):
+        io.sanitize_name(".")
+
+    assert io.sanitize_name(".", fallback="Unnamed") == "Unnamed"
+
+
+def test_sanitize_path():
+    assert io.sanitize_path_name(
+        Path("test/test_name-1.txt")
+    ) == Path("test/test_name-1.txt")
+    assert io.sanitize_path_name(
+        Path("test/test name-1.txt")
+    ) == Path("test/test_name-1.txt")
+    assert io.sanitize_path_name(
+        Path("test/*test#name-1&.txt")
+    ) == Path("test/_test_name-1_.txt")
+    assert io.sanitize_path_name(
+        Path("test/.test name-1.txt")
+    ) == Path("test/.test_name-1.txt")
+    assert io.sanitize_path_name(
+        Path("test/test name-1.txt.")
+    ) == Path("test/test_name-1.txt")
+
+    assert io.sanitize_path_name(
+        Path("test/test name-1"),
+        replacement="-"
+    ) == Path("test/test-name-1")

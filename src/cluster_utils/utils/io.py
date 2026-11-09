@@ -4,6 +4,7 @@ NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
 """
 
 from __future__ import annotations
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -76,3 +77,71 @@ def does_file_contain_exactly(
         contents = contents.strip()
 
     return contents == expected_contents
+
+
+def sanitize_name(
+        name: str,
+        replacement: str = "_",
+        fallback: str | None = None,
+) -> str:
+    """Sanitize a string to allow for use as file/directory name.
+
+    Parameters
+    ----------
+    name
+        Name to sanitize.
+    replacement
+        What to replace invalid characters with.
+    fallback
+        Fallback name to use if sanitization results in an empty string.
+        If None, raises error if sanitization results in an empty string.
+
+    Returns
+    -------
+    str
+        Sanitized name.
+    """
+
+    name = Path(name).name
+    safe_name = re.sub(r"[^\w.-]", replacement, name).rstrip(". ").lstrip(" ")
+    print(repr(name), repr(safe_name))
+
+    if fallback:
+        return safe_name if safe_name else fallback
+
+    if not safe_name:
+        raise ValueError(
+            f"Sanitization of name '{name}' resulted in empty string, "
+            f"and no fallback specified."
+        )
+
+    return safe_name
+
+
+def sanitize_path_name(
+        path: Path,
+        replacement: str = "_",
+        fallback: str | None = None,
+) -> Path:
+    """Sanitize a path to allow for name to be used as file/directory.
+
+    Parameters
+    ----------
+    path
+        Path to sanitize.
+    replacement
+        What to replace invalid characters with.
+    fallback
+        Fallback name to use if sanitization results in an empty string.
+        If None, raises error if sanitization results in an empty string.
+
+    Returns
+    -------
+    Path
+        Path with name sanitized.
+    """
+    sanitized_name = sanitize_name(path.name, replacement, fallback)
+    if path.parent:
+        return path.parent / sanitized_name
+
+    return Path(sanitized_name)

@@ -13,8 +13,9 @@ from pathlib import Path
 from typing import Any, ClassVar, cast, Self
 
 from cluster_utils import init_logger, get_project_dir, SLURM_TMP_DIR_ENV_VAR, \
-    SLURM_ARRAY_JOB_INDEX_ENV_VAR
+    SLURM_ARRAY_JOB_INDEX_ENV_VAR, SBATCH_ACCOUNT_ENV_VAR
 from cluster_utils.utils import ArgParseable, JsonSerializable, staticclass
+from cluster_utils.utils.io import sanitize_name
 
 logger = init_logger(Path(__file__).name)
 
@@ -583,16 +584,23 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             **fallbacks: Any,
     ):
         account = getattr(args, "account", None)
+
+        # Try reading account from account file in project directory
         if not account:
             project_dir = getattr(args, "project_dir")
             account = cls.read_account_from_file(
                 cls.construct_account_file_path(project_dir)
             )
-            if not account:
-                raise RuntimeError(
-                    "Account file not found. "
-                    "'--account' flag must be provided."
-                )
+
+        # Try getting account from environment variable
+        if not account:
+            account = os.getenv(SBATCH_ACCOUNT_ENV_VAR)
+
+        if not account:
+            raise RuntimeError(
+                "Account file not found. "
+                "'--account' flag must be provided."
+            )
 
         if not args.scratch_dir:
             raise argparse.ArgumentError(
@@ -661,8 +669,8 @@ class RunPaths(ArgParseable, JsonSerializable):
     def build_slurm_params_json_path(self, job_name: str) -> Path:
         """JSON file to write slurm parameters for the current run to."""
 
-        # TODO: Add name sanitization to ensure name is valid as file name
-        return self.params_dir / (job_name + self.SLURM_PARAMS_JSON_SUFFIX)
+        return (self.params_dir /
+                (sanitize_name(job_name) + self.SLURM_PARAMS_JSON_SUFFIX))
 
     def get_output_dir_for_job(self, job: type[SlurmJob]) -> Path:
         return self.output_dir / job.job_name()
@@ -1106,7 +1114,6 @@ class LoginPaths(ArgParseable, JsonSerializable):
 
     project_paths: ProjectPaths
     run_paths: RunPaths
-    # TODO: Move under RunPaths?
     attempt_paths: AttemptPaths
 
     def initialize_run(self) -> None:

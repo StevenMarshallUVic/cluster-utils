@@ -41,7 +41,6 @@ class ProjectInitParams(ArgParseable):
             group: argparse._ArgumentGroup | None = None,
             prefix: str | None = None,
     ) -> None:
-        # TODO: Allow retrieving account from `SBATCH_ACCOUNT` env variable.
         add_argument_to_parser(
             parser,
             group,

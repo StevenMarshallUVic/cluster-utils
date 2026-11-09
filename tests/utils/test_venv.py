@@ -66,7 +66,6 @@ class TestVenvCreator:
         assert previous_version != venv.current_pip_version
 
         # Test `install_requirements()`
-        # TODO: Test whether this package should always be installed even in fresh venv
         assert len(VenvCreator.find_missing_requirements(
             requirements=requirements,
             installed=venv.installed_packages,

@@ -17,7 +17,7 @@ VENV_ENV_VAR = "VIRTUAL_ENV"
 SLURM_ARRAY_JOB_INDEX_ENV_VAR = "SLURM_ARRAY_TASK_ID"
 SLURM_TMP_DIR_ENV_VAR = "SLURM_TMPDIR"
 SLURM_JOB_NAME_ENV_VAR = "SLURM_JOB_NAME"
-# TODO: Sort out entire project file structure to unify utils, streamline paths, etc
+SBATCH_ACCOUNT_ENV_VAR = "SBATCH_ACCOUNT"
 
 
 def get_project_dir() -> Path:
