@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Self, ClassVar, Any
 
 from cluster_utils import get_environment_default_log_level, init_logger, \
-    SLURM_JOB_NAME_ENV_VAR, SLURM_TMP_DIR_ENV_VAR
+    SLURM_JOB_NAME_ENV_VAR, SLURM_TMP_DIR_ENV_VAR, PACKAGE_URL
 from cluster_utils._config import ClusterConfig, WORKFLOW_SCRIPT_TOML_FIELD_NAME
 from cluster_utils._paths import ComputePaths as CliComputePaths
 from cluster_utils._paths import ProjectPaths as CliProjectPaths
@@ -87,6 +87,14 @@ class _LoginRunner(ArgParser):
 
         return True
 
+    def _build_package_wheel(self) -> bool:
+        VenvCreator.create_wheel(
+            PACKAGE_URL,
+            self.paths.run_paths.cluster_utils_wheel_dir
+        )
+        whl_file = self.paths.run_paths.cluster_utils_wheel
+        return whl_file and whl_file.is_file()
+
     def initialize(self) -> bool:
         """Perform general initialization for a run.
 
@@ -120,6 +128,8 @@ class _LoginRunner(ArgParser):
             for name, params in self.job_name_to_slurm_params.items():
                 params.to_json(self.paths.run_paths.build_slurm_params_json_path(name))
 
+        if not self._build_package_wheel():
+            return False
         return True
 
     def submit_compute_jobs(self) -> bool:
@@ -203,7 +213,7 @@ class _LoginRunner(ArgParser):
                 "&&", "virtualenv", "--no-download", f"${SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}",
                 "&&", "source", f"${SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}/bin/activate",
                 "&&", "pip", "install", "--no-index", "--upgrade", "pip",
-                "&&", "pip", "install", "--no-index", *venv.all_requirements_args,
+                "&&", "pip", "install", "--no-index", self.paths.run_paths.cluster_utils_wheel, *[r.requirement_str for r in venv.requirements],
                 "&&", "cluster-compute",
                 "--project-dir",  self.paths.project_paths.project_dir,
                 "--runner-stage",  _RunnerStage.COMPUTE.name,

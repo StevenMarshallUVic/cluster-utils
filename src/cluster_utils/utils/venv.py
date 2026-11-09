@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable
 
 from cluster_utils import PACKAGE_NAME, PACKAGE_URL, init_logger
@@ -226,6 +227,30 @@ class VenvCreator:
         ) + os.pathsep + os.environ["PATH"]
         os.environ["VIRTUAL_ENV"] = str(self.paths.venv_dir)
         logger.debug("Virtual environment sourced!")
+
+    @staticmethod
+    def create_wheel(
+            source_url: str,
+            output_dir: Path | None = None
+    ) -> None:
+        logger.debug("Creating wheel from '%s'...", source_url)
+        args = ["pip", "wheel", source_url]
+        if output_dir:
+            args.extend(["-w", str(output_dir)])
+
+        process = subprocess.run(
+            args,
+            check=True,
+            capture_output=True,
+        )
+        if process.returncode != 0:
+            raise RuntimeError(
+                f"Python wheel creation failed with "
+                f"return code {process.returncode}. "
+                f"Stdout:\n{process.stdout}\n"
+                f"Stderr:\n{process.stderr}\n"
+            )
+        logger.debug("Wheel created at '%s'!", output_dir)
 
     @staticmethod
     def find_missing_requirements(

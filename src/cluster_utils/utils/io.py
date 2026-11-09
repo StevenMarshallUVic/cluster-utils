@@ -104,7 +104,6 @@ def sanitize_name(
 
     name = Path(name).name
     safe_name = re.sub(r"[^\w.-]", replacement, name).rstrip(". ").lstrip(" ")
-    print(repr(name), repr(safe_name))
 
     if fallback:
         return safe_name if safe_name else fallback

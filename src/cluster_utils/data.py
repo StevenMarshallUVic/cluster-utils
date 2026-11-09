@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar, cast, Self
 
 from cluster_utils import init_logger, get_project_dir, SLURM_TMP_DIR_ENV_VAR, \
-    SLURM_ARRAY_JOB_INDEX_ENV_VAR, SBATCH_ACCOUNT_ENV_VAR
+    SLURM_ARRAY_JOB_INDEX_ENV_VAR, SBATCH_ACCOUNT_ENV_VAR, PACKAGE_NAME
 from cluster_utils.utils import ArgParseable, JsonSerializable, staticclass
 from cluster_utils.utils.io import sanitize_name
 
@@ -361,7 +361,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
         logger.info(
             "Creating array job command for %s proteins "
             "grouped into %s array jobs...",
-            remaining_input_files,
+            len(remaining_input_files),
             max_array_index,
         )
         log_file = paths.attempt_paths.get_job_log_file_path(self.job)
@@ -660,6 +660,22 @@ class RunPaths(ArgParseable, JsonSerializable):
     def run_paths_json(self) -> Path:
         """JSON file to write run path data for the current run to."""
         return self.params_dir / "run_paths.json"
+
+    @property
+    def cluster_utils_wheel_dir(self):
+        return self.params_dir / "cluster_utils_wheel"
+
+    @property
+    def cluster_utils_wheel(self):
+        wheel_dir_files = list(self.cluster_utils_wheel_dir.glob("*.whl"))
+        if len(wheel_dir_files) != 1:
+            logger.warning(
+                "Could not find cluster-utils wheel in '%s'.",
+                self.cluster_utils_wheel_dir
+            )
+            return None
+
+        return wheel_dir_files[0]
 
     @property
     def attempts_dir(self) -> Path:
