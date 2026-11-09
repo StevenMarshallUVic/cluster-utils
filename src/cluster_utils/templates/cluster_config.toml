@@ -7,13 +7,13 @@ workflow-script = "./src/cluster_workflow.py"
 [login]
 [login.environment]
 # Which modules to load for login stage. Order determines module load order.
-modules =  ["StdEnv/2026", "python/3.14.7"]
+modules =  ["StdEnv/2026", "python/3.15.2"]
 # Relative path to requirements.txt file for login stage. Leave blank to omit.
 python-requirements =  ""
 
 [compute]
 [compute.environment]
 # Which modules to load for compute stage. Order determines module load order.
-modules =  ["StdEnv/2026", "python/3.14.7"]
+modules =  ["StdEnv/2026", "python/3.15.2"]
 # Relative path to requirements.txt file for compute stage. Leave blank to omit.
 python-requirements =  ""
