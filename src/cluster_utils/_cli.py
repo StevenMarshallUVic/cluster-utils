@@ -178,7 +178,7 @@ def perform_compute(arguments: Iterable[str] | None = None):
     # )
 
     from cluster_utils._cluster_runner import main
-    main(args=_construct_runner_flags(project_paths))
+    main(arguments=_construct_runner_flags(project_paths))
     # logger.info("Passing execution to virtual environment...")
     # process = subprocess.Popen(
     #     _construct_runner_subprocess_args(project_paths),
