@@ -2,19 +2,22 @@ import argparse
 import os
 import shutil
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self, ClassVar
 
 from cluster_utils import get_environment_default_log_level, init_logger, \
-    SLURM_JOB_NAME_ENV_VAR
+    SLURM_JOB_NAME_ENV_VAR, SLURM_TMP_DIR_ENV_VAR
 from cluster_utils._config import ClusterConfig
+from cluster_utils._paths import ComputePaths as CliComputePaths
 from cluster_utils._paths import ProjectPaths as CliProjectPaths
+from cluster_utils._utils.venv import VenvCreator, VenvPaths
 from cluster_utils.data import ArrayJobData, LoginPaths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
     SlurmJob, ComputePaths, ComputeNodePaths, RunPaths, AttemptPaths, ProjectPaths
 from cluster_utils.utils import EnumAction, _RunnerStage, ArgParseable, \
-    ON_CLUSTER
+    ON_CLUSTER, PythonPackage
 from cluster_utils.workflow import FullWorkflow
 from cluster_utils.workflow_utils import find_subclasses_in_script, ArgParser
 
@@ -182,9 +185,25 @@ class _LoginRunner(ArgParser):
         """Submit a slurm array job to handle the compute portion of the job."""
 
         compute_job_args = job.compute_job_args()
+        cli_project_paths = CliProjectPaths(self.paths.project_paths.project_dir)
+        config = ClusterConfig.from_toml(cli_project_paths.cluster_config_toml)
+
+        requirements_file = config.compute_environment.requirements_file
+        venv = VenvCreator(
+            VenvPaths(Path()),
+            requirements=tuple(
+                PythonPackage.from_requirements_txt(requirements_file)
+            ) if (requirements_file and requirements_file.is_file())
+            else tuple(),
+        )
         wrap_args = [
             subprocess.list2cmdline([arg]) for arg in [
-                "cd", self.paths.project_paths.project_dir,
+                "cd", SLURM_TMP_DIR_ENV_VAR,
+                "&&", "module", "load", " ".join(config.compute_environment.modules),
+                "&&", "virtualenv", "--no-download", f"{SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}",
+                "&&", "source", f"{SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}/bin/activate",
+                "&&", "pip", "install", "--no-index", "--upgrade", "pip",
+                "&&", "pip", "install", "--no-index", venv.all_requirements_args,
                 "&&", "cluster-compute",
                 "--project-dir",  self.paths.project_paths.project_dir,
                 "--runner-stage",  _RunnerStage.COMPUTE.name,
@@ -513,9 +532,9 @@ def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
     return subclasses[0]
 
 
-def main():
+def main(args: Iterable[str] | None = None):
     # TODO: Fix help logging
-    args, _ = _build_argument_parser().parse_known_args()
+    args, _ = _build_argument_parser().parse_known_args(args)
     logger.setLevel(args.log_level)
 
     paths = CliProjectPaths(args.project_dir)

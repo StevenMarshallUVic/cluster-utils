@@ -50,6 +50,23 @@ class VenvPaths:
         return self.venv_dir / ("bin" if os.name != "nt" else "Scripts")
 
     @property
+    def venv_activate_script(self):
+        """Path to directory containing virtual environment executables.
+
+        Correctly handles path differences between Windows and Unix systems.
+
+        Warnings
+        --------
+        On Windows, currently only supports using
+        Command Prompt (`activate.bat`).
+        If using PowerShell, you should construct
+        the path to `activate.ps1` yourself.
+        """
+
+        return (self.venv_bin_dir /
+                ("activate" if os.name != "nt" else "activate.bat"))
+
+    @property
     def venv_python(self):
         """Path to virtual environment executable.
 
@@ -148,6 +165,8 @@ class ProjectPaths:
 class ComputePaths:
     compute_dir: Path
 
+    VENV_NAME = ".venv"
+
     @property
     def venv_dir(self):
-        return self.compute_dir / ".venv"
+        return self.compute_dir / self.VENV_NAME

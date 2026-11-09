@@ -166,32 +166,35 @@ def perform_compute(arguments: Iterable[str] | None = None):
             f"Must provide '--compute-dir' flag."
         )
 
-    compute_paths = ComputePaths(args.compute_dir)
+    # TODO: Confirm that this logic is obsoleted by slurm job wrap args
+    # compute_paths = ComputePaths(args.compute_dir)
     project_paths = ProjectPaths(get_project_dir())
-    config = ClusterConfig.from_toml(project_paths.cluster_config_toml)
+    # config = ClusterConfig.from_toml(project_paths.cluster_config_toml)
 
-    logger.info("Initializing compute environment...")
-    initialize_environment(
-        config.compute_environment,
-        VenvPaths(compute_paths.venv_dir),
-    )
+    # logger.info("Initializing compute environment...")
+    # initialize_environment(
+    #     config.compute_environment,
+    #     VenvPaths(compute_paths.venv_dir),
+    # )
 
-    logger.info("Passing execution to virtual environment...")
-    process = subprocess.Popen(
-        _construct_runner_subprocess_args(project_paths),
-        env=os.environ.copy(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-    # Stream log messages
-    if process.stdout:
-        for line in process.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
-
-    process.wait()
+    from cluster_utils._cluster_runner import main
+    main(args=_construct_runner_flags(project_paths))
+    # logger.info("Passing execution to virtual environment...")
+    # process = subprocess.Popen(
+    #     _construct_runner_subprocess_args(project_paths),
+    #     env=os.environ.copy(),
+    #     stdout=subprocess.PIPE,
+    #     stderr=subprocess.STDOUT,
+    #     text=True,
+    #     bufsize=1,
+    # )
+    # # Stream log messages
+    # if process.stdout:
+    #     for line in process.stdout:
+    #         sys.stdout.write(line)
+    #         sys.stdout.flush()
+    #
+    # process.wait()
 
 
 def is_project_paths_initialized(
@@ -297,9 +300,15 @@ def initialize_environment(
     venv.create_and_initialize_venv()
 
 
-def _construct_runner_subprocess_args(project_paths: ProjectPaths):
+def _construct_runner_subprocess_args(project_paths: ProjectPaths) -> list[str]:
     return [
         "python", "-u", "-m", "cluster_utils._cluster_runner",
+    ] + _construct_runner_flags(project_paths) + sys.argv[1:]
+
+
+def _construct_runner_flags(project_paths: ProjectPaths) -> list[str]:
+    return [
         "--log-level", str(logger.getEffectiveLevel()),
-        "--project-dir", project_paths.project_dir,
-    ] + sys.argv[1:]
+        "--project-dir", str(project_paths.project_dir),
+    ]
+

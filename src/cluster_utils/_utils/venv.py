@@ -78,7 +78,7 @@ class VenvCreator:
         )
 
     @property
-    def _all_requirements_args(self) -> list[str]:
+    def all_requirements_args(self) -> list[str]:
         """All required packages in a form that can be passed as arguments
         to subprocess."""
 
@@ -188,7 +188,7 @@ class VenvCreator:
         if ON_CLUSTER:
             args.append("--no-index")
 
-        args.extend(self._all_requirements_args)
+        args.extend(self.all_requirements_args)
         process = subprocess.run(
             args,
             check=True,
