@@ -12,8 +12,7 @@ from typing import Iterable
 
 from cluster_utils import PACKAGE_NAME, PACKAGE_URL, init_logger
 from cluster_utils._paths import VenvPaths
-from cluster_utils._utils import ON_CLUSTER
-from cluster_utils.utils import PythonPackage
+from cluster_utils.utils import PythonPackage, ON_CLUSTER
 
 logger = init_logger(__name__)
 

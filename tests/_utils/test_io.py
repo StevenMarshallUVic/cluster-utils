@@ -1,6 +1,6 @@
 import pytest
 
-from cluster_utils._utils import io
+from cluster_utils.utils import io
 
 
 

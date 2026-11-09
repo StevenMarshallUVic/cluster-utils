@@ -13,7 +13,7 @@ from cluster_utils import get_project_dir
 from cluster_utils.data import add_argument_to_parser
 from cluster_utils.utils import ArgParseable
 from cluster_utils._paths import ProjectPaths
-from cluster_utils._utils import io
+from cluster_utils.utils import io
 
 ACCOUNT_FLAG = "--account"
 

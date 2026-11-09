@@ -14,8 +14,7 @@ from typing import Any, ClassVar, cast, Self
 
 from cluster_utils import init_logger, get_project_dir, SLURM_TMP_DIR_ENV_VAR, \
     SLURM_ARRAY_JOB_INDEX_ENV_VAR
-from cluster_utils.utils import ArgParseable, JsonSerializable
-from cluster_utils._utils import staticclass
+from cluster_utils.utils import ArgParseable, JsonSerializable, staticclass
 
 logger = init_logger(Path(__file__).name)
 
@@ -358,6 +357,12 @@ class SlurmParams(ArgParseable, JsonSerializable):
         if max_array_index is None:
             return None
 
+        logger.info(
+            "Creating array job command for %s proteins "
+            "grouped into %s array jobs...",
+            remaining_input_files,
+            max_array_index,
+        )
         log_file = paths.attempt_paths.get_job_log_file_path(self.job)
         args = [
             "sbatch",
@@ -452,14 +457,15 @@ class SlurmParams(ArgParseable, JsonSerializable):
             args: argparse.Namespace,
             **fallbacks: Any,
     ):
+        fallbacks.setdefault("batch_size", cls.job.default_batch_size())
+        fallbacks.setdefault("memory", cls.job.default_memory())
+        fallbacks.setdefault("time", cls.job.default_time())
+        fallbacks.setdefault("cpus_per_task", cls.job.default_cpus_per_task())
+        fallbacks.setdefault("gpus", cls.job.gpus())
         arg_parseable: ArgParseable = super()
         return arg_parseable.from_args(
             args,
-            batch_size=cls.job.default_batch_size(),
-            memory=cls.job.default_memory(),
-            time=cls.job.default_time(),
-            cpus_per_task=cls.job.default_cpus_per_task(),
-            gpus=cls.job.gpus(),
+            **fallbacks,
         )
 
 

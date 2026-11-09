@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cluster_utils import init_logger
-from cluster_utils._utils import LMOD_ENV_VAR
+from cluster_utils.utils import LMOD_ENV_VAR
 
 logger = init_logger(__name__)
 

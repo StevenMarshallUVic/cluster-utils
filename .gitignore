@@ -21,7 +21,3 @@ dist/
 # Project files
 .account.txt
 .cluster_venv/
-
-
-# TODO: Temp debug
-.venv-3.9.25/

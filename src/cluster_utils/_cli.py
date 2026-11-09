@@ -5,6 +5,7 @@ NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
 
 # Needed for backward compatibility of type hints using pipe operator
 from __future__ import annotations
+
 import argparse
 import os
 import subprocess
@@ -12,17 +13,16 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from cluster_utils import get_project_dir, init_logger, VENV_ENV_VAR, SLURM_TMP_DIR_ENV_VAR
+from cluster_utils import get_project_dir, init_logger, VENV_ENV_VAR
 from cluster_utils._config import ClusterConfig, EnvironmentConfig
-from cluster_utils._paths import ProjectPaths, VenvPaths, ComputePaths
-from cluster_utils._utils import ON_CLUSTER
-from cluster_utils._utils.venv import VenvCreator
-from cluster_utils._utils import io, project_init
+from cluster_utils._paths import ProjectPaths, VenvPaths
 from cluster_utils.data import add_argument_to_parser
-from cluster_utils.utils import PythonPackage
+from cluster_utils.utils import PythonPackage, ON_CLUSTER
+from cluster_utils.utils import io, project_init
+from cluster_utils.utils.venv import VenvCreator
 
 if ON_CLUSTER:
-    from cluster_utils._utils.lmod import LmodModuleLoader
+    from cluster_utils.utils.lmod import LmodModuleLoader
 
 logger = init_logger(__name__)
 
@@ -132,69 +132,11 @@ def perform_run(arguments: Iterable[str] | None = None):
     exit(0)
 
 
-def perform_compute(arguments: Iterable[str] | None = None):
-    """Command for performing compute logic on a compute node.
-
-    Parameters
-    ----------
-    arguments
-        (Optional) When provided, uses given args instead of command line args.
-    """
-    # TODO: Write tests
-
-    parser = argparse.ArgumentParser(
-        prog="Cluster Compute Launcher",
-        description="Handles launching compute logic on compute node.",
-        add_help=True,
-    )
-    compute_dir_arg = add_argument_to_parser(
-        parser,
-        None,
-        None,
-        "--compute-dir",
-        dest="compute_dir",
-        help="(Optional) Path to directory allocated for slurm job. When not "
-             f"provided, uses '{SLURM_TMP_DIR_ENV_VAR}' environment variable.",
-        type=Path,
-        default=os.getenv(SLURM_TMP_DIR_ENV_VAR),
-    )
-    args, _ = parser.parse_known_args(arguments)
-    if args.compute_dir is None:
-        raise argparse.ArgumentError(
-            compute_dir_arg,
-            f"Could not find '{SLURM_TMP_DIR_ENV_VAR}' in environment. "
-            f"Must provide '--compute-dir' flag."
-        )
-
-    # TODO: Confirm that this logic is obsoleted by slurm job wrap args
-    # compute_paths = ComputePaths(args.compute_dir)
-    project_paths = ProjectPaths(get_project_dir())
-    # config = ClusterConfig.from_toml(project_paths.cluster_config_toml)
-
-    # logger.info("Initializing compute environment...")
-    # initialize_environment(
-    #     config.compute_environment,
-    #     VenvPaths(compute_paths.venv_dir),
-    # )
+def perform_compute():
+    """Command for performing compute logic on a compute node."""
 
     from cluster_utils._cluster_runner import main
-    main(arguments=_construct_runner_flags(project_paths))
-    # logger.info("Passing execution to virtual environment...")
-    # process = subprocess.Popen(
-    #     _construct_runner_subprocess_args(project_paths),
-    #     env=os.environ.copy(),
-    #     stdout=subprocess.PIPE,
-    #     stderr=subprocess.STDOUT,
-    #     text=True,
-    #     bufsize=1,
-    # )
-    # # Stream log messages
-    # if process.stdout:
-    #     for line in process.stdout:
-    #         sys.stdout.write(line)
-    #         sys.stdout.flush()
-    #
-    # process.wait()
+    main(arguments=_construct_runner_flags(ProjectPaths(get_project_dir())))
 
 
 def is_project_paths_initialized(

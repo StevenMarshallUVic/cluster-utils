@@ -5,7 +5,7 @@ import os
 import pytest
 
 from cluster_utils._paths import ProjectPaths
-from cluster_utils._utils.venv import VenvCreator, PythonPackage, CLUSTER_UTILS_PACKAGE
+from cluster_utils.utils.venv import VenvCreator, PythonPackage, CLUSTER_UTILS_PACKAGE
 
 VENV_ENV_VAR = "VIRTUAL_ENV"
 

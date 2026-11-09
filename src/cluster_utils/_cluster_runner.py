@@ -5,17 +5,18 @@ import subprocess
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self, ClassVar
+from typing import Self, ClassVar, Any
 
 from cluster_utils import get_environment_default_log_level, init_logger, \
     SLURM_JOB_NAME_ENV_VAR, SLURM_TMP_DIR_ENV_VAR
-from cluster_utils._config import ClusterConfig
+from cluster_utils._config import ClusterConfig, WORKFLOW_SCRIPT_TOML_FIELD_NAME
 from cluster_utils._paths import ComputePaths as CliComputePaths
 from cluster_utils._paths import ProjectPaths as CliProjectPaths
-from cluster_utils._utils.venv import VenvCreator, VenvPaths
+from cluster_utils.utils.venv import VenvCreator, VenvPaths
 from cluster_utils.data import ArrayJobData, LoginPaths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
-    SlurmJob, ComputePaths, ComputeNodePaths, RunPaths, AttemptPaths, ProjectPaths
+    SlurmJob, ComputePaths, ComputeNodePaths, RunPaths, AttemptPaths, \
+    ProjectPaths
 from cluster_utils.utils import EnumAction, _RunnerStage, ArgParseable, \
     ON_CLUSTER, PythonPackage
 from cluster_utils.workflow import FullWorkflow
@@ -112,7 +113,6 @@ class _LoginRunner(ArgParser):
                 self.paths.run_paths,
             )
 
-            # TODO: Use these previous run slurm params instead of always using defaults
             logger.debug("Initializing run params directory...")
             self.paths.run_paths.params_dir.mkdir(parents=True)
             self.paths.project_paths.to_json(self.paths.run_paths.project_paths_json)
@@ -238,24 +238,17 @@ class _LoginRunner(ArgParser):
         )
 
         job_id = int(process.stdout) if process.stdout else None
-        # TODO: Determine whether this means job submission was successful or
-        #  the actual jobs were successful
         if process.returncode == 0:
-            logger.info("%s slurm jobs completed!", job.job_name())
+            logger.info("'%s' slurm jobs completed!", job.job_name())
         else:
             logger.warning(
-                "One or more %s slurm jobs failed.",
-                job.job_name()
+                "One or more '%s' slurm jobs failed. Error code: %s",
+                job.job_name(),
+                process.returncode,
             )
             logger.debug("Job args: %s", args)
-            logger.debug(
-                "Job submission stdout:\n%s",
-                process.stdout
-            )
-            logger.debug(
-                "Job submission stderr:\n%s",
-                process.stderr
-            )
+            logger.debug("stdout:\n%s",process.stdout)
+            logger.debug("stderr:\n%s", process.stderr)
 
         return job_id
 
@@ -278,19 +271,29 @@ class _LoginRunner(ArgParser):
         if len(kwargs) > 0:
             raise ValueError(f"Unexpected keyword arguments: {kwargs}.")
 
+        paths = LoginPaths.from_custom_args(
+            args,
+            cls.full_workflow().project_name
+        )
+
         job_name_to_inst = {}
         for job in cls.full_workflow().login_workflow.jobs():
-            slurm_params = SlurmParams.create_subclass_from_job(job)
+            slurm_params_type = SlurmParams.create_subclass_from_job(job)
             if job.job_name() in job_name_to_inst:
                 raise KeyError("Multiple SlurmJobs with same job_name.")
 
-            job_name_to_inst[job.job_name()] = slurm_params.from_args(args)
+            # Use cached slurm params as fallbacks if present
+            json_path = paths.run_paths.build_slurm_params_json_path(job.job_name())
+            fallbacks: dict[str, Any] = json.load(open(json_path, "r")) \
+                if json_path.is_file() else {}
+
+            job_name_to_inst[job.job_name()] = slurm_params_type.from_args(
+                args,
+                **fallbacks
+            )
 
         return cls(
-            paths=LoginPaths.from_custom_args(
-                args,
-                cls.full_workflow().project_name
-            ),
+            paths=paths,
             job_name_to_slurm_params=job_name_to_inst,
         )
 
@@ -510,14 +513,12 @@ def _build_argument_parser() -> argparse.ArgumentParser:
 
 
 def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
-    # TODO: Replace hardcoded field name
-    toml_field_name = "workflow-script"
     target_type: type = FullWorkflow
     if not workflow_script.is_file():
         raise FileNotFoundError(
             f"Could not find workflow script at '{workflow_script}'."
-            f"Update config TOML `{toml_field_name}` to point to "
-            f"your workflow script."
+            f"Update config TOML `{WORKFLOW_SCRIPT_TOML_FIELD_NAME}` "
+            f"to point to your workflow script."
         )
     subclasses: list[type[FullWorkflow]] = find_subclasses_in_script(
         workflow_script,
@@ -533,7 +534,6 @@ def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
 
 
 def main(arguments: Iterable[str] | None = None):
-    print(arguments) # TODO: Temp debug
     # TODO: Fix help logging
     args, _ = _build_argument_parser().parse_known_args(arguments)
     logger.setLevel(args.log_level)

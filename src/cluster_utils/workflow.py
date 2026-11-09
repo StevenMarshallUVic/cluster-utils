@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cluster_utils.data import SlurmJob, RunPaths, LoginPaths, ComputePaths
-from cluster_utils._utils import staticclass
+from cluster_utils.utils import staticclass
 
 
 @staticclass

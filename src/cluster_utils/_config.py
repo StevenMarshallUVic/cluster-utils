@@ -15,6 +15,8 @@ from pathlib import Path
 # Cannot import Self due to cluster defaulting to python 3.9
 from typing import Any
 
+WORKFLOW_SCRIPT_TOML_FIELD_NAME = "workflow-script"
+
 
 @dataclass(frozen=True)
 class GlobalConfig:
@@ -26,7 +28,9 @@ class GlobalConfig:
     @classmethod
     def from_dict(cls, d: dict[str, Any]):
         instance = cls(
-            workflow_script_rel_path=Path(d.pop("workflow-script")),
+            workflow_script_rel_path=Path(
+                d.pop(WORKFLOW_SCRIPT_TOML_FIELD_NAME)
+            ),
         )
         if len(d) != 0:
             raise ValueError(f"Remaining values: {d}.")

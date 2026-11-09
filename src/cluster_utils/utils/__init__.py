@@ -4,14 +4,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, fields, MISSING
 from enum import Enum, StrEnum, auto
 from pathlib import Path
 from typing import Any
-
-from cluster_utils._utils import ON_CLUSTER
 
 
 class _RunnerStage(StrEnum):
@@ -388,3 +387,18 @@ class ArgParseable(ABC):
 
         # noinspection argument-list
         return cls(**init_values)
+
+
+LMOD_ENV_VAR = "LMOD_CMD"
+ON_CLUSTER = LMOD_ENV_VAR in os.environ
+
+
+def staticclass(cls):
+    """Decorator to make a class static by preventing instantiation."""
+
+    def __new__(new_cls, *args, **kwargs):
+        raise TypeError(
+            f"Class {cls.__name__} is static and cannot be instantiated.")
+
+    cls.__new__ = __new__
+    return cls
