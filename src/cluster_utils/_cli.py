@@ -303,11 +303,11 @@ def initialize_environment(
 def _construct_runner_subprocess_args(project_paths: ProjectPaths) -> list[str]:
     return [
         "python", "-u", "-m", "cluster_utils._cluster_runner",
-    ] + _construct_runner_flags(project_paths) + sys.argv[1:]
+    ] + _construct_runner_flags(project_paths)
 
 
 def _construct_runner_flags(project_paths: ProjectPaths) -> list[str]:
     return [
         "--log-level", str(logger.getEffectiveLevel()),
         "--project-dir", str(project_paths.project_dir),
-    ]
+    ] + sys.argv[1:]
