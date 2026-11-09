@@ -4,7 +4,8 @@ import os
 
 import pytest
 
-from cluster_utils._paths import ProjectPaths
+from cluster_utils import PACKAGE_URL, PACKAGE_NAME
+from cluster_utils._paths import ProjectPaths, VenvPaths
 from cluster_utils.utils.venv import VenvCreator, PythonPackage, CLUSTER_UTILS_PACKAGE
 
 VENV_ENV_VAR = "VIRTUAL_ENV"
@@ -44,7 +45,7 @@ class TestVenvCreator:
         """Combined due to long runtime when initializing a venv for each test.
         """
 
-        paths = ProjectPaths(tmp_path)
+        paths = VenvPaths(tmp_path / ".venv")
         requirements = [
             PythonPackage("six", version="1.16.0"),
             CLUSTER_UTILS_PACKAGE,
@@ -84,3 +85,9 @@ class TestVenvCreator:
         assert VENV_ENV_VAR in os.environ
         assert os.environ[VENV_ENV_VAR] == str(paths.venv_dir)
         assert os.environ["PATH"].startswith(str(paths.venv_bin_dir))
+
+        # Test `create_wheel()`
+        wheel_dir = tmp_path / "wheels"
+        venv.create_wheel(PACKAGE_URL, wheel_dir)
+        assert len(list(wheel_dir.glob("*.whl"))) == 1
+        assert list(wheel_dir.glob("*.whl"))[0].name.startswith(PACKAGE_NAME.replace("-", "_"))
