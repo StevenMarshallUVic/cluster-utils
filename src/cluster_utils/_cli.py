@@ -311,4 +311,3 @@ def _construct_runner_flags(project_paths: ProjectPaths) -> list[str]:
         "--log-level", str(logger.getEffectiveLevel()),
         "--project-dir", str(project_paths.project_dir),
     ]
-

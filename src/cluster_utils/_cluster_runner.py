@@ -532,9 +532,10 @@ def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
     return subclasses[0]
 
 
-def main(args: Iterable[str] | None = None):
+def main(arguments: Iterable[str] | None = None):
+    print(arguments) # TODO: Temp debug
     # TODO: Fix help logging
-    args, _ = _build_argument_parser().parse_known_args(args)
+    args, _ = _build_argument_parser().parse_known_args(arguments)
     logger.setLevel(args.log_level)
 
     paths = CliProjectPaths(args.project_dir)
