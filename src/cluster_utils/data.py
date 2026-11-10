@@ -405,8 +405,10 @@ class SlurmParams(ArgParseable, JsonSerializable):
             prefix: str | None = None,
     ) -> None:
         group = group or parser.add_argument_group(
+            f"{cls.job.job_name().replace("_", " ").title()} "
             "Slurm Parameters",
-            "Parameters used for Slurm job submission."
+            "Parameters used for Slurm job submission of "
+            f"{cls.job.job_name().replace("_", " ")} job."
         )
         prefix = prefix or cls.job.arg_prefix()
         add_argument_to_parser(
