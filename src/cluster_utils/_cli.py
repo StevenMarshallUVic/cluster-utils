@@ -168,6 +168,7 @@ def perform_run(arguments: Iterable[str] | None = None):
 def perform_compute(arguments: Iterable[str] | None = None):
     """Command for performing compute logic on a compute node."""
 
+    from cluster_utils._cluster_runner import main, _RunnerStage
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "-h", "--help",
@@ -187,6 +188,7 @@ def perform_compute(arguments: Iterable[str] | None = None):
         if "--project-dir" not in sys.argv[1:]:
             sys.argv += ["--project-dir", str(get_project_dir())]
         arg_sources = get_argument_sources_for_stage(
+            stage=_RunnerStage.COMPUTE,
             arguments=sys.argv[1:]
         )
         for arg_source in arg_sources:
@@ -195,7 +197,7 @@ def perform_compute(arguments: Iterable[str] | None = None):
         help_parser.parse_args(arguments)
         return
 
-    from cluster_utils._cluster_runner import main, _RunnerStage
+    # TODO: Maybe remove main function since we can call any function we want?
     main(
         arguments=[
             "--runner-stage", _RunnerStage.COMPUTE.name,
