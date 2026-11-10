@@ -27,46 +27,6 @@ if ON_CLUSTER:
 logger = init_logger(__name__)
 
 
-def update(arguments: Iterable[str] | None = None) -> None:
-    """Update package to latest version.
-
-    Parameters
-    ----------
-    arguments
-        (Optional) When provided, uses given args instead of command line args.
-    """
-    # TODO: Write tests
-
-    logger.info("Updating 'cluster-utils' package...")
-
-    parser = argparse.ArgumentParser(
-        prog="Cluster Updater",
-        description="Handles updating cluster-utils package to latest version.",
-        add_help=True,
-    )
-    venv_arg = add_argument_to_parser(
-        parser,
-        None,
-        None,
-        "-v", "--venv",
-        dest="venv",
-        help="(Optional) Virtual environment to update package within. When "
-             f"not provided, uses '{VENV_ENV_VAR}' environment variable.",
-        type=Path,
-        default=os.getenv(VENV_ENV_VAR),
-    )
-    args = parser.parse_args(arguments)
-    if args.venv is None:
-        raise argparse.ArgumentError(
-            venv_arg,
-            f"Could not find '{VENV_ENV_VAR}' in environment. "
-            "Must provide '--venv' flag."
-        )
-
-    VenvCreator(VenvPaths(args.venv)).install_requirements()
-    logger.info("Package 'cluster-utils' updated successfully!")
-
-
 def initialize_project(arguments: Iterable[str] | None = None) -> None:
     """Command for initializing a project's file structure for use with
     the cluster-utils framework.
@@ -86,12 +46,59 @@ def initialize_project(arguments: Iterable[str] | None = None) -> None:
     project_init.ProjectInitParams.add_arguments(parser)
     args = parser.parse_args(arguments)
 
-    project_init.initialize_project(
-        project_init.ProjectInitParams.from_args(args)
+    project_init_params = project_init.ProjectInitParams.from_args(args)
+    project_init.initialize_project(project_init_params)
+
+
+def update(arguments: Iterable[str] | None = None) -> None:
+    """Update virtual environment to latest version.
+
+    Parameters
+    ----------
+    arguments
+        (Optional) When provided, uses given args instead of command line args.
+    """
+    # TODO: Write tests
+
+    logger.info("Updating virtual environment...")
+    parser = argparse.ArgumentParser(
+        prog="Cluster Updater",
+        description="Handles updating virtual environment.",
+        add_help=True,
     )
+    add_argument_to_parser(
+        parser,
+        None,
+        None,
+        "--project-dir",
+        help="(Optional) Root directory of project to initialize. "
+             "When not provided, infers project directory from relative "
+             "file structure of python virtual environment.",
+        type=Path,
+        default=get_project_dir(),
+        required=False,
+    )
+    args = parser.parse_known_args(arguments)
+
+    paths = ProjectPaths(args.project_dir)
+    if not paths.cluster_config_toml.is_file():
+        raise FileNotFoundError(
+            f"Could not find config TOML at '{paths.cluster_config_toml}'. "
+            "Have you run `cluster-init` on this project?"
+        )
+
+    config = ClusterConfig.from_toml(paths.cluster_config_toml)
+    requirements_file = config.login_environment.requirements_file
+    VenvCreator(
+        paths=paths.venv_paths,
+        requirements=tuple(
+            PythonPackage.from_requirements_txt(requirements_file)
+        ) if (requirements_file and requirements_file.is_file())
+        else tuple(),
+    ).create_and_initialize_venv()
+    logger.info("Virtual environment updated!")
 
 
-# TODO: Fix help logging
 def perform_run(arguments: Iterable[str] | None = None):
     """Command for submitting a run from a login node.
 
@@ -102,9 +109,35 @@ def perform_run(arguments: Iterable[str] | None = None):
     """
     # TODO: Write tests
 
-    paths = ProjectPaths(get_project_dir())
+    parser = argparse.ArgumentParser(
+        prog="Cluster Run Launcher",
+        description="Handles launching a run on a cluster.",
+        add_help=False,
+    )
+    parser.add_argument(
+        "-h", "--help",
+        help="show this help message and exit",
+        action="store_true",
+    )
+    args, _ = parser.parse_known_args(arguments)
 
-    update(["--venv", str(paths.venv_paths.venv_dir)])
+    paths = ProjectPaths(get_project_dir())
+    if args.help:
+        from cluster_utils._cluster_runner import get_argument_sources_for_stage
+        help_parser = argparse.ArgumentParser(
+            prog="Cluster Run Launcher",
+            description="Handles launching a run on a cluster.",
+            add_help=True,
+        )
+        arg_sources = get_argument_sources_for_stage(
+            arguments=_construct_runner_flags(paths)
+        )
+        print(arg_sources)
+        for arg_source in arg_sources:
+            arg_source.add_arguments(help_parser)
+
+        help_parser.parse_args(arguments)
+        return
 
     if not is_project_paths_initialized(paths):
         raise RuntimeError(
@@ -112,11 +145,12 @@ def perform_run(arguments: Iterable[str] | None = None):
             "Run `cluster-init` first to initialize project file structure."
         )
 
-    logger.info("Performing run...")
     config = ClusterConfig.from_toml(paths.cluster_config_toml)
-
-    logger.info("Initializing run environment...")
-    initialize_environment(config.login_environment, paths.venv_paths)
+    if ON_CLUSTER:
+        logger.info("Initializing modules...")
+        LmodModuleLoader().purge_and_load_modules(
+            config.login_environment.modules
+        )
 
     logger.info("Passing execution to virtual environment in background...")
     sys.stdout.flush()
@@ -208,38 +242,6 @@ def is_project_dir_initialized(
     """
 
     return is_project_paths_initialized(ProjectPaths(project_dir), account)
-
-
-def initialize_environment(
-        environment: EnvironmentConfig,
-        venv_paths: VenvPaths,
-) -> None:
-    """Initialize environment using config.
-
-    Initialization includes:
-    - Loading modules (if on cluster)
-    - Creating and initializing python virtual environment
-
-    Parameters
-    ----------
-    environment
-        Configuration to use when initializing environment.
-    venv_paths
-        Paths for virtual environment.
-    """
-
-    if ON_CLUSTER:
-        LmodModuleLoader().purge_and_load_modules(environment.modules)
-
-    requirements_file = environment.requirements_file
-    venv = VenvCreator(
-        paths=venv_paths,
-        requirements=tuple(
-            PythonPackage.from_requirements_txt(requirements_file)
-        ) if (requirements_file and requirements_file.is_file())
-        else tuple(),
-    )
-    venv.create_and_initialize_venv()
 
 
 def _construct_runner_subprocess_args(project_paths: ProjectPaths) -> list[str]:

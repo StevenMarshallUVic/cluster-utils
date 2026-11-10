@@ -46,12 +46,12 @@ class _LoginRunner(ArgParser):
 
     @staticmethod
     def static_argument_sources() -> list[type[ArgParseable]]:
-        static_argument_sources: list[type[ArgParseable]] = [LoginPaths]
+        argument_sources: list[type[ArgParseable]] = [LoginPaths]
         for job in _LoginRunner.full_workflow().login_workflow.jobs():
-            static_argument_sources.append(
+            argument_sources.append(
                 SlurmParams.create_subclass_from_job(job)
             )
-        return static_argument_sources
+        return argument_sources
 
     def run(self) -> bool:
         """Perform login portion of run.
@@ -479,6 +479,7 @@ class _ClusterRunners:
         Whether stage was run successfully.
         """
 
+        # TODO: Find better solution for static class variable hacks
         match self._stage:
             case _RunnerStage.LOGIN:
                 _LoginRunner.full_workflow = self._workflow_class
@@ -512,7 +513,10 @@ class _ClusterRunners:
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Cluster Runner")
+    parser = argparse.ArgumentParser(
+        description="Cluster Runner",
+        add_help=False,
+    )
     parser.add_argument(
         "--log-level",
         type=int,
@@ -549,18 +553,46 @@ def _find_user_workflow_class(workflow_script: Path) -> type[FullWorkflow]:
     return subclasses[0]
 
 
+def _find_user_workflow_class_from_args(
+        arguments: Iterable[str] | None = None,
+) -> type[FullWorkflow]:
+    args, _ = _build_argument_parser().parse_known_args(arguments)
+    paths = CliProjectPaths(args.project_dir)
+    if not paths.cluster_config_toml.is_file():
+        raise FileNotFoundError(
+            f"Could not find config TOML at '{paths.cluster_config_toml}'. "
+            "Have you run `cluster-init` on this project?"
+        )
+    config = ClusterConfig.from_toml(paths.cluster_config_toml)
+
+    return _find_user_workflow_class(
+        config.global_config.get_workflow_script_path(paths.project_dir)
+    )
+
+
+def get_argument_sources_for_stage(
+        stage: _RunnerStage = _RunnerStage.LOGIN,
+        arguments: Iterable[str] | None = None,
+) -> list[type[ArgParseable]]:
+    workflow_class = _find_user_workflow_class_from_args(arguments)
+    match stage:
+        case _RunnerStage.LOGIN:
+            _LoginRunner.full_workflow = workflow_class
+            return _LoginRunner.static_argument_sources()
+        case _RunnerStage.COMPUTE:
+            _ComputeRunner.full_workflow = workflow_class
+            return _ComputeRunner.static_argument_sources()
+        case _:
+            raise ValueError(f"Unsupported runner stage: {stage}.")
+
+
 def main(arguments: Iterable[str] | None = None):
-    # TODO: Fix help logging
     args, _ = _build_argument_parser().parse_known_args(arguments)
     logger.setLevel(args.log_level)
 
-    paths = CliProjectPaths(args.project_dir)
-    config = ClusterConfig.from_toml(paths.cluster_config_toml)
-
-    workflow_class = _find_user_workflow_class(
-        config.global_config.get_workflow_script_path(paths.project_dir)
-    )
-    _ClusterRunners.from_args(_workflow_class=workflow_class).run_stage()
+    _ClusterRunners.from_args(
+        _workflow_class=_find_user_workflow_class_from_args(arguments),
+    ).run_stage()
 
 
 if __name__ == "__main__":

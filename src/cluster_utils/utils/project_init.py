@@ -47,8 +47,8 @@ class ProjectInitParams(ArgParseable):
             prefix,
             "-a", ACCOUNT_FLAG,
             help="(Optional) Account to charge slurm usage to. "
-                 "If not provided, you will be required to specify an account "
-                 "each time you submit a run.",
+                 "If not provided, you may be required to specify an account "
+                 "when submitting a run.",
             type=str,
             required=False,
         )
@@ -56,9 +56,10 @@ class ProjectInitParams(ArgParseable):
             parser,
             group,
             prefix,
-            "--project_dir",
+            "--project-dir",
             help="(Optional) Root directory of project to initialize. "
-                 "When not provided, infers project directory from environment.",
+                 "When not provided, infers project directory from relative "
+                 "file structure of python virtual environment.",
             type=Path,
             default=get_project_dir(),
             required=False,

@@ -541,6 +541,10 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             group: argparse._ArgumentGroup | None = None,
             prefix: str | None = None,
     ) -> None:
+        group = group or parser.add_argument_group(
+            "Project Paths",
+            "Paths for this project.",
+        )
         add_argument_to_parser(
             parser,
             group,
@@ -548,7 +552,8 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             "--account",
             help=f"(Optional) Digital Research Alliance of Canada account to "
                  f"charge usage to. "
-                 f"When not supplied, attempts to find value in account file.",
+                 f"When not supplied, attempts to find value "
+                 f"in account file or environment.",
             type=str,
         )
         add_argument_to_parser(
@@ -879,7 +884,8 @@ class RunPaths(ArgParseable, JsonSerializable):
             "-i", "--input-path",
             dest="input_path",
             help="Path to input(s). "
-                 "See README.md for explanation of valid inputs.",
+                 "See README.md for explanation of valid inputs. "
+                 "Mutually exclusive with `--run-dir`.",
             type=Path,
         )
         add_argument_to_parser(
@@ -889,7 +895,8 @@ class RunPaths(ArgParseable, JsonSerializable):
             "-r", "--run-dir",
             dest="run_dir",
             help="Path to directory where previous run was created. "
-                 "Allows performing multiple attempts for one input dataset.",
+                 "Allows performing multiple attempts for one input dataset. "
+                 "Mutually exclusive with `--input-path`.",
             type=Path,
         )
         add_argument_to_parser(
