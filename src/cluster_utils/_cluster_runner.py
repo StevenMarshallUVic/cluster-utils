@@ -88,6 +88,11 @@ class _LoginRunner(ArgParser):
         return True
 
     def _build_package_wheel(self) -> bool:
+        # Delete previous instance if one exists
+        if self.paths.run_paths.cluster_utils_wheel_dir.is_dir():
+            shutil.rmtree(self.paths.run_paths.cluster_utils_wheel_dir)
+
+        self.paths.run_paths.cluster_utils_wheel_dir.mkdir()
         VenvCreator.create_wheel(
             PACKAGE_URL,
             self.paths.run_paths.cluster_utils_wheel_dir
