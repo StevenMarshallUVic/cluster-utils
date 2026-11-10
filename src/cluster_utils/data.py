@@ -382,7 +382,6 @@ class SlurmParams(ArgParseable, JsonSerializable):
         if self.gpus is not None:
             args.append(f"--gpus={self.gpus}")
         if dependencies:
-            # TODO: Test that this works
             args.append(f"--dependency={dependencies.as_flag_value()}")
 
         return args

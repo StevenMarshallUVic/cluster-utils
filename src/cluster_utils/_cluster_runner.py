@@ -3,7 +3,7 @@ import os
 import shutil
 import subprocess
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Self, ClassVar, Any
 
@@ -294,8 +294,9 @@ class _LoginRunner(ArgParser):
 
             # Use cached slurm params as fallbacks if present
             json_path = paths.run_paths.build_slurm_params_json_path(job.job_name())
-            fallbacks: dict[str, Any] = json.load(open(json_path, "r")) \
-                if json_path.is_file() else {}
+            fallbacks: dict[str, Any] = asdict(
+                SlurmParams.from_json(json_path)
+            ) if json_path.is_file() else {}
 
             job_name_to_inst[job.job_name()] = slurm_params_type.from_args(
                 args,
