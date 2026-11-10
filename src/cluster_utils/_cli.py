@@ -109,11 +109,7 @@ def perform_run(arguments: Iterable[str] | None = None):
     """
     # TODO: Write tests
 
-    parser = argparse.ArgumentParser(
-        prog="Cluster Run Launcher",
-        description="Handles launching a run on a cluster.",
-        add_help=False,
-    )
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "-h", "--help",
         help="show this help message and exit",
@@ -169,8 +165,35 @@ def perform_run(arguments: Iterable[str] | None = None):
     exit(0)
 
 
-def perform_compute():
+def perform_compute(arguments: Iterable[str] | None = None):
     """Command for performing compute logic on a compute node."""
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-h", "--help",
+        help="show this help message and exit",
+        action="store_true",
+    )
+    args, _ = parser.parse_known_args(arguments)
+
+    if args.help:
+        from cluster_utils._cluster_runner import get_argument_sources_for_stage
+        help_parser = argparse.ArgumentParser(
+            prog="Cluster Compute Launcher",
+            description="Handles performing a job on a compute node.",
+            add_help=True,
+        )
+        # Simplifies case when user calls help from login node
+        if "--project-dir" not in sys.argv[1:]:
+            sys.argv += ["--project-dir", str(get_project_dir())]
+        arg_sources = get_argument_sources_for_stage(
+            arguments=sys.argv[1:]
+        )
+        for arg_source in arg_sources:
+            arg_source.add_arguments(help_parser)
+
+        help_parser.parse_args(arguments)
+        return
 
     from cluster_utils._cluster_runner import main, _RunnerStage
     main(
