@@ -153,8 +153,7 @@ def perform_run(arguments: Iterable[str] | None = None):
     subprocess.Popen(
         [
             "nohup",
-            "cd", str(paths.project_dir),
-            "&&", "source", str(paths.venv_paths.venv_activate_script),
+            "source", str(paths.venv_paths.venv_activate_script),
             "&&", "python", "-u", "-m", "cluster_utils._cluster_runner",
             "--log-level", str(logger.getEffectiveLevel()),
             "--project-dir", str(paths.project_dir),
