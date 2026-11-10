@@ -78,7 +78,7 @@ def update(arguments: Iterable[str] | None = None) -> None:
         default=get_project_dir(),
         required=False,
     )
-    args = parser.parse_known_args(arguments)
+    args, _ = parser.parse_known_args(arguments)
 
     paths = ProjectPaths(args.project_dir)
     if not paths.cluster_config_toml.is_file():
