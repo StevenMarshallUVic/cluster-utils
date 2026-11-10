@@ -130,7 +130,7 @@ def perform_run(arguments: Iterable[str] | None = None):
             add_help=True,
         )
         arg_sources = get_argument_sources_for_stage(
-            arguments=_construct_runner_flags(paths)
+            arguments=["--project-dir", str(paths.project_dir)]
         )
         for arg_source in arg_sources:
             arg_source.add_arguments(help_parser)
@@ -155,7 +155,11 @@ def perform_run(arguments: Iterable[str] | None = None):
     sys.stdout.flush()
     log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
     subprocess.Popen(
-        ["nohup"] + _construct_runner_subprocess_args(paths),
+        [
+            "nohup", "python", "-u", "-m", "cluster_utils._cluster_runner",
+            "--log-level", str(logger.getEffectiveLevel()),
+            "--project-dir", str(project_paths.project_dir),
+        ] + sys.argv[1:],
         env=os.environ.copy(),
         stdout=log_fd,
         stderr=subprocess.STDOUT,
@@ -168,8 +172,13 @@ def perform_run(arguments: Iterable[str] | None = None):
 def perform_compute():
     """Command for performing compute logic on a compute node."""
 
-    from cluster_utils._cluster_runner import main
-    main(arguments=_construct_runner_flags(ProjectPaths(get_project_dir())))
+    from cluster_utils._cluster_runner import main, _RunnerStage
+    main(
+        arguments=[
+            "--runner-stage", _RunnerStage.COMPUTE.name,
+            "--log-level", str(logger.getEffectiveLevel()),
+        ] + sys.argv[1:],
+    )
 
 
 def is_project_paths_initialized(
@@ -241,16 +250,3 @@ def is_project_dir_initialized(
     """
 
     return is_project_paths_initialized(ProjectPaths(project_dir), account)
-
-
-def _construct_runner_subprocess_args(project_paths: ProjectPaths) -> list[str]:
-    return [
-        "python", "-u", "-m", "cluster_utils._cluster_runner",
-    ] + _construct_runner_flags(project_paths)
-
-
-def _construct_runner_flags(project_paths: ProjectPaths) -> list[str]:
-    return [
-        "--log-level", str(logger.getEffectiveLevel()),
-        "--project-dir", str(project_paths.project_dir),
-    ] + sys.argv[1:]

@@ -221,7 +221,6 @@ class _LoginRunner(ArgParser):
                 "&&", "pip", "install", "--no-index", self.paths.run_paths.cluster_utils_wheel, *[r.requirement_str for r in venv.requirements],
                 "&&", "cluster-compute",
                 "--project-dir",  self.paths.project_paths.project_dir,
-                "--runner-stage",  _RunnerStage.COMPUTE.name,
                 "--attempt-index", str(self.paths.attempt_paths.attempt_index),
                 "--run-paths-json",  self.paths.run_paths.run_paths_json,
             ] + (compute_job_args if compute_job_args is not None else [])
