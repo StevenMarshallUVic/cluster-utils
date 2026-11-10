@@ -408,6 +408,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
             "Slurm Parameters",
             "Parameters used for Slurm job submission."
         )
+        prefix = prefix or cls.job.arg_prefix()
         add_argument_to_parser(
             parser,
             group,

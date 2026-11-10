@@ -315,11 +315,6 @@ class JsonSerializable(ABC):
 class ArgParseable(ABC):
     """Interface for adding argument parsing support to a dataclass."""
 
-    @staticmethod
-    def argument_prefix() -> str | None:
-        """Virtual method for adding custom prefix to arguments."""
-        return None
-
     @classmethod
     @abstractmethod
     def add_arguments(

@@ -3,12 +3,11 @@ import os
 from pathlib import Path
 
 SRC_ROOT_DIR = Path(__file__).parent
-# PACKAGE_NAME = SRC_ROOT_DIR.name
 PACKAGE_NAME = "cam-cluster-utils"
 # TODO: Replace with non-branch once merged
 PACKAGE_URL = "git+https://github.com/StevenMarshallUVic/cluster-utils.git@automated"
 
-root_logger = logging.getLogger()
+_root_logger = logging.getLogger()
 
 DEV_LOG_LEVEL = logging.DEBUG
 PROD_LOG_LEVEL = logging.DEBUG # TODO: Temp debug
@@ -65,7 +64,7 @@ def init_logger(
         logger.setLevel(log_level)
         return logger
 
-    if not root_logger.handlers:
+    if not _root_logger.handlers:
         logging.basicConfig(level=log_level, force=True)
         logger = logging.getLogger(name)
         logger.setLevel(log_level)
@@ -73,6 +72,6 @@ def init_logger(
 
     logger = logging.getLogger(name)
     if logger.level == logging.NOTSET:
-        logger.setLevel(root_logger.level)
+        logger.setLevel(_root_logger.level)
 
     return logger

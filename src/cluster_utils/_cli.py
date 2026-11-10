@@ -132,7 +132,6 @@ def perform_run(arguments: Iterable[str] | None = None):
         arg_sources = get_argument_sources_for_stage(
             arguments=_construct_runner_flags(paths)
         )
-        print(arg_sources)
         for arg_source in arg_sources:
             arg_source.add_arguments(help_parser)
 
