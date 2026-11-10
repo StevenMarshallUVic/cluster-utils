@@ -425,10 +425,8 @@ class SlurmParams(ArgParseable, JsonSerializable):
             "--cpus-per-task", "--cpus",
             dest="cpus_per_task",
             help="(Optional) How many CPUs to allocate for each slurm job. "
-                 "When not supplied, uses default of "
-                 f"{cls.DEFAULT_CPUS_PER_TASK}.",
+                 "When not supplied, uses default CPU allocation.",
             type=int,
-            default=cls.DEFAULT_CPUS_PER_TASK,
         )
         add_argument_to_parser(
             parser,
@@ -437,7 +435,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
             "--memory", "--mem",
             dest="memory",
             help="(Optional) Amount of memory to allocate for each slurm job. "
-                 "When not supplied, uses default memory.",
+                 "When not supplied, uses default memory allocation.",
             type=str,
         )
         add_argument_to_parser(
@@ -447,7 +445,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
             "--time",
             dest="time",
             help="(Optional) Amount of time to allocate for each slurm job. "
-                 "When not supplied, uses default time.",
+                 "When not supplied, uses default time allocation.",
             type=str,
         )
 
