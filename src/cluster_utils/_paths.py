@@ -84,7 +84,7 @@ class ProjectPaths:
 
     ACCOUNT_TXT_NAME = ".account.txt"
     LOG_FILE_NAME = "last_run.log"
-    VENV_DIR_NAME = ".cluster_venv"
+    VENV_DIR_NAME = ".venv"
 
     @property
     def venv_paths(self):
