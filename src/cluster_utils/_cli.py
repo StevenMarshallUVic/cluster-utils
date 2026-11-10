@@ -154,7 +154,7 @@ def perform_run(arguments: Iterable[str] | None = None):
         [
             "nohup", "python", "-u", "-m", "cluster_utils._cluster_runner",
             "--log-level", str(logger.getEffectiveLevel()),
-            "--project-dir", str(project_paths.project_dir),
+            "--project-dir", str(paths.project_dir),
         ] + sys.argv[1:],
         env=os.environ.copy(),
         stdout=log_fd,
