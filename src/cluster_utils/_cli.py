@@ -152,7 +152,10 @@ def perform_run(arguments: Iterable[str] | None = None):
     log_fd = os.open(paths.log_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
     subprocess.Popen(
         [
-            "nohup", "python", "-u", "-m", "cluster_utils._cluster_runner",
+            "nohup",
+            "cd", str(paths.project_dir),
+            "&&", "source", str(paths.venv_paths.venv_activate_script),
+            "&&", "python", "-u", "-m", "cluster_utils._cluster_runner",
             "--log-level", str(logger.getEffectiveLevel()),
             "--project-dir", str(paths.project_dir),
         ] + sys.argv[1:],
