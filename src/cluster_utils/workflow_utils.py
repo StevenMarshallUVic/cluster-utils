@@ -93,6 +93,7 @@ class ArgParser(ABC):
             description=cls.parser_description(),
             epilog="See README.md for more information.",
             conflict_handler="resolve",
+            add_help=False,
         )
         for argument_source in cls.static_argument_sources():
             argument_source.add_arguments(parser)
