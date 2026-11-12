@@ -230,7 +230,6 @@ def perform_compute(arguments: Iterable[str] | None = None):
         help_parser.parse_args(arguments)
         return
 
-    # TODO: Maybe remove main function since we can call any function we want?
     main(
         arguments=[
             "--runner-stage", RunnerStage.COMPUTE.name,

@@ -235,7 +235,7 @@ class _LoginRunner(ArgParser):
         """Submit a slurm array job to handle the compute portion of the job."""
 
         logger.debug(
-            "Preparing array job submission for '%s'.",
+            "Preparing array job submission for '%s' job.",
             job.job_name()
         )
         compute_job_args = job.compute_job_args()
@@ -688,6 +688,8 @@ def get_argument_sources_for_stage(
             raise ValueError(f"Unsupported runner stage: {stage}.")
 
 
+# TODO: Maybe remove main function and split into separate modules
+#  since we can call any class/function we want from cli?
 def main(arguments: Iterable[str] | None = None) -> None:
     """Perform a stage of a run on a cluster.
 

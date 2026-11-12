@@ -1177,6 +1177,7 @@ class LoginPaths(ArgParseable, JsonSerializable):
             Directory to compress.
         fmt
             Format to compress to.
+            See `shutil.make_archive()` for format options.
 
         Returns
         -------
