@@ -230,11 +230,21 @@ class VenvCreator:
 
     @staticmethod
     def create_wheel(
-            source_url: str,
+            package_url: str,
             output_dir: Path | None = None
     ) -> None:
-        logger.debug("Creating wheel from '%s'...", source_url)
-        args = ["pip", "wheel", source_url]
+        """Create wheel for Python package hosted externally from pip.
+
+        Parameters
+        ----------
+        package_url
+            URL of package to create wheel for.
+        output_dir
+            Where to write wheel file to.
+        """
+
+        logger.debug("Creating wheel from '%s'...", package_url)
+        args = ["pip", "wheel", package_url]
         if output_dir:
             args.extend(["-w", str(output_dir)])
 
@@ -257,7 +267,20 @@ class VenvCreator:
             requirements: Iterable[PythonPackage],
             installed: Iterable[PythonPackage],
     ) -> list[PythonPackage]:
-        """Validate that all requirements are installed in environment."""
+        """Validate that all requirements are installed in environment.
+
+        Parameters
+        ----------
+        requirements
+            Requirements that should be installed.
+        installed
+            Packages which are currently installed.
+
+        Returns
+        -------
+        list[PythonPackage]
+            Packages that are required but not currently installed.
+        """
 
         installed_name_to_package = {p.name: p for p in installed}
         missing_requirements = []

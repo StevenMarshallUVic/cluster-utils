@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar, cast, Self
 
 from cluster_utils import init_logger, get_project_dir, SLURM_TMP_DIR_ENV_VAR, \
-    SLURM_ARRAY_JOB_INDEX_ENV_VAR, SBATCH_ACCOUNT_ENV_VAR, PACKAGE_NAME
+    SLURM_ARRAY_JOB_INDEX_ENV_VAR, SBATCH_ACCOUNT_ENV_VAR
 from cluster_utils.utils import ArgParseable, JsonSerializable, staticclass
 from cluster_utils.utils.io import sanitize_name
 
@@ -179,59 +179,59 @@ class SlurmDependencies:
 
 @staticclass
 class SlurmJob(ABC):
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def job_name() -> str:
+    def job_name(cls) -> str:
         """Name of Slurm job. Will be shown in slurm job displays."""
         pass
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def default_batch_size() -> int:
+    def default_batch_size(cls) -> int:
         """Default number of inputs to batch together if an override is not
         provided on the command line.
         """
         pass
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def default_memory() -> str:
+    def default_memory(cls) -> str:
         """Default RAM to allocate if an override is not
         provided on the command line.
         """
         pass
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def default_time() -> str:
+    def default_time(cls) -> str:
         """Default runtime to allocate if an override is not
         provided on the command line.
         """
         pass
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def default_cpus_per_task() -> int:
+    def default_cpus_per_task(cls) -> int:
         """Default number of CPUs to allocate if an override is not
         provided on the command line.
         """
         return 1
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def gpus() -> str | None:
+    def gpus(cls) -> str | None:
         """Optional number and type of GPUs to allocate."""
         return None
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def job_type() -> SlurmJobType:
+    def job_type(cls) -> SlurmJobType:
         """Type of slurm job to submit."""
         return SlurmJobType.ARRAY
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def arg_prefix() -> str | None:
+    def arg_prefix(cls) -> str | None:
         """Optional prefix to add to command line arguments for slurm params.
 
         Helpful when defining more than one SlurmJob in project, allowing
@@ -239,35 +239,39 @@ class SlurmJob(ABC):
         """
         return None
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def job_dependencies() -> dict[type[SlurmJob], SlurmDependencyType]:
+    def job_dependencies(cls) -> dict[type[SlurmJob], SlurmDependencyType]:
         """Mapping between jobs that this job depends on and the nature
         of the dependency.
         """
         return {}
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def require_all_dependencies() -> bool:
+    def require_all_dependencies(cls) -> bool:
         """When true, all dependencies must be satisfied.
         Otherwise, any dependency may be satisfied.
         """
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def compute_job_args() -> list[str] | None:
+    def compute_job_args(cls) -> list[str] | None:
         """Additional command line arguments to pass to compute job."""
         return None
 
-    @staticmethod
+    @classmethod
     @abstractmethod
     def get_missing_output_input_files(
+            cls,
             run_paths: RunPaths,
     ) -> list[Path]:
         """Identify all input files that do not have a corresponding output
         file.
+
+        The `get_missing_output_input_files()` method of `RunPaths` can
+        be very helpful here.
 
         Parameters
         ----------
@@ -281,29 +285,29 @@ class SlurmJob(ABC):
         """
         return run_paths.get_missing_output_input_files()
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def pre_initialize(paths: ComputePaths) -> bool:
+    def pre_initialize(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def post_initialize(paths: ComputePaths) -> bool:
+    def post_initialize(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def perform_computations(paths: ComputePaths) -> bool:
+    def perform_computations(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def pre_post_process(paths: ComputePaths) -> bool:
+    def pre_post_process(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def post_post_process(paths: ComputePaths) -> bool:
+    def post_post_process(cls, paths: ComputePaths) -> bool:
         return True
 
 
@@ -362,7 +366,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
             "Creating array job command for %s proteins "
             "grouped into %s array jobs...",
             len(remaining_input_files),
-            max_array_index,
+            max_array_index + 1,
         )
         log_file = paths.attempt_paths.get_job_log_file_path(self.job)
         args = [
@@ -698,7 +702,10 @@ class RunPaths(ArgParseable, JsonSerializable):
 
     def initialize_run_dir(self) -> None:
         """Initialize run directory."""
+
+        logger.debug("Initializing run directory...")
         self.run_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug("Run directory initialized!")
 
     @staticmethod
     def _get_stem_of_path_with_features(
@@ -822,6 +829,7 @@ class RunPaths(ArgParseable, JsonSerializable):
 
         logger.debug("Initializing output directory...")
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug("Output directory initialized!")
 
     @staticmethod
     def generate_run_name(
@@ -1073,8 +1081,10 @@ class AttemptPaths(JsonSerializable):
     def initialize_attempt_dir(self) -> None:
         """Initialize current attempt directory."""
 
+        logger.debug("Initializing attempt directory...")
         self.attempt_dir.mkdir(parents=True)
         self.logs_dir.mkdir(parents=True)
+        logger.debug("Attempt directory initialized!")
 
     @classmethod
     def calculate_next_attempt_index(cls, attempts_dir: Path) -> int:
@@ -1148,9 +1158,11 @@ class LoginPaths(ArgParseable, JsonSerializable):
             - Output directory creation
         """
 
+        logger.debug("Initializing run paths...")
         self.run_paths.initialize_run_dir()
         self.run_paths.initialize_output_dir()
         self.attempt_paths.initialize_attempt_dir()
+        logger.debug("Run paths initialized!")
 
     @staticmethod
     def compress_and_delete_dir(

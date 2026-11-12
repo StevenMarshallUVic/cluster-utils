@@ -4,6 +4,7 @@ NOTE: Only import this script if you've confirmed that the script is being
         run on a cluster. Otherwise, script initialization will raise errors
         if Lmod is not installed on the system.
 NOTE: Must be backward compatible with python 3.9.25 for use on clusters.
+TODO: Capture output from `module` commands, only write if error, and strip when writing
 """
 
 from __future__ import annotations
@@ -62,7 +63,7 @@ class LmodModuleLoader:
         logger.debug("Purging modules...")
         args = ["purge"]
         if force:
-            logger.info("Forcing all modules to be purged...")
+            logger.debug("Forcing all modules to be purged...")
             args.insert(0, "--force")
 
         module(*args)

@@ -18,6 +18,8 @@ SLURM_TMP_DIR_ENV_VAR = "SLURM_TMPDIR"
 SLURM_JOB_NAME_ENV_VAR = "SLURM_JOB_NAME"
 SBATCH_ACCOUNT_ENV_VAR = "SBATCH_ACCOUNT"
 
+# TODO: Add additional logging throughout entire project
+
 
 def get_project_dir() -> Path:
     """Get root directory of project that this package is installed in."""

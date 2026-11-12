@@ -37,6 +37,8 @@ def initialize_project(arguments: Iterable[str] | None = None) -> None:
         (Optional) When provided, uses given args instead of command line args.
     """
 
+    logger.info("Initializing project...")
+    logger.debug("Parsing project initialization command line arguments...")
     parser = argparse.ArgumentParser(
         prog="Cluster Project Initialization",
         description="Handles initializing project for use with cluster-utils "
@@ -45,9 +47,15 @@ def initialize_project(arguments: Iterable[str] | None = None) -> None:
     )
     project_init.ProjectInitParams.add_arguments(parser)
     args = parser.parse_args(arguments)
+    logger.debug("Project initialization command line arguments parsed!")
 
+    logger.debug("Creating project initialization parameters from arguments...")
     project_init_params = project_init.ProjectInitParams.from_args(args)
+    logger.debug("Project initialization parameters created!")
+
+    logger.debug("Performing project initialization...")
     project_init.initialize_project(project_init_params)
+    logger.info("Project initialized!")
 
 
 def update(arguments: Iterable[str] | None = None) -> None:
@@ -61,6 +69,7 @@ def update(arguments: Iterable[str] | None = None) -> None:
     # TODO: Write tests
 
     logger.info("Updating virtual environment...")
+    logger.debug("Parsing update command line arguments...")
     parser = argparse.ArgumentParser(
         prog="Cluster Updater",
         description="Handles updating virtual environment.",
@@ -79,7 +88,9 @@ def update(arguments: Iterable[str] | None = None) -> None:
         required=False,
     )
     args, _ = parser.parse_known_args(arguments)
+    logger.debug("Command line arguments parsed!")
 
+    logger.debug("Reading data from arguments...")
     paths = ProjectPaths(args.project_dir)
     if not paths.cluster_config_toml.is_file():
         raise FileNotFoundError(
@@ -89,6 +100,9 @@ def update(arguments: Iterable[str] | None = None) -> None:
 
     config = ClusterConfig.from_toml(paths.cluster_config_toml)
     requirements_file = config.login_environment.requirements_file
+    logger.debug("Data read!")
+
+    logger.debug("Performing update...")
     VenvCreator(
         paths=paths.venv_paths,
         requirements=tuple(
@@ -109,6 +123,8 @@ def perform_run(arguments: Iterable[str] | None = None):
     """
     # TODO: Write tests
 
+    logger.info("Performing run...")
+    logger.debug("Parsing run command line arguments...")
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "-h", "--help",
@@ -116,9 +132,11 @@ def perform_run(arguments: Iterable[str] | None = None):
         action="store_true",
     )
     args, _ = parser.parse_known_args(arguments)
+    logger.debug("Run command line arguments parsed!")
 
     paths = ProjectPaths(get_project_dir())
     if args.help:
+        logger.debug("Building help display...")
         from cluster_utils._cluster_runner import get_argument_sources_for_stage
         help_parser = argparse.ArgumentParser(
             prog="Cluster Run Launcher",
@@ -169,9 +187,17 @@ def perform_run(arguments: Iterable[str] | None = None):
 
 
 def perform_compute(arguments: Iterable[str] | None = None):
-    """Command for performing compute logic on a compute node."""
+    """Command for performing compute logic on a compute node.
 
-    from cluster_utils._cluster_runner import main, _RunnerStage
+    Parameters
+    ----------
+    arguments
+        (Optional) When provided, uses given args instead of command line args.
+    """
+
+    logger.info("Performing compute stage...")
+    logger.debug("Parsing compute command line arguments...")
+    from cluster_utils._cluster_runner import main, RunnerStage
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "-h", "--help",
@@ -179,19 +205,23 @@ def perform_compute(arguments: Iterable[str] | None = None):
         action="store_true",
     )
     args, _ = parser.parse_known_args(arguments)
+    logger.debug("Compute command line arguments parsed!")
 
     if args.help:
+        logger.debug("Building help display...")
         from cluster_utils._cluster_runner import get_argument_sources_for_stage
         help_parser = argparse.ArgumentParser(
             prog="Cluster Compute Launcher",
             description="Handles performing a job on a compute node.",
             add_help=True,
         )
+
         # Simplifies case when user calls help from login node
         if "--project-dir" not in sys.argv[1:]:
             sys.argv += ["--project-dir", str(get_project_dir())]
+
         arg_sources = get_argument_sources_for_stage(
-            stage=_RunnerStage.COMPUTE,
+            stage=RunnerStage.COMPUTE,
             arguments=sys.argv[1:]
         )
         for arg_source in arg_sources:
@@ -203,10 +233,11 @@ def perform_compute(arguments: Iterable[str] | None = None):
     # TODO: Maybe remove main function since we can call any function we want?
     main(
         arguments=[
-            "--runner-stage", _RunnerStage.COMPUTE.name,
+            "--runner-stage", RunnerStage.COMPUTE.name,
             "--log-level", str(logger.getEffectiveLevel()),
         ] + sys.argv[1:],
     )
+    logger.info("Compute stage complete!")
 
 
 def is_project_paths_initialized(

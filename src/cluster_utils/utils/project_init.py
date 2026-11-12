@@ -189,9 +189,11 @@ def initialize_project(init: ProjectInitParams) -> None:
     the cluster-utils framework.
     """
 
+    logger.debug("Checking for existing template files...")
     _check_for_existing_template_files(init)
+    logger.debug("Existing template files checked!")
 
-    logger.info("Initializing project...")
+    logger.info("Writing project files...")
     init = _update_init_from_user_input(init)
     _write_project_files(init)
-    logger.info("Project successfully initialized!")
+    logger.info("Project files written!")

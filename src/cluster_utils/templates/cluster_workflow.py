@@ -3,19 +3,19 @@ from cluster_utils.workflow import FullWorkflow, LoginWorkflow, ComputeWorkflow
 
 
 class CustomFullWorkflow(FullWorkflow):
-    @property
-    def project_name(self) -> str:
+    @classmethod
+    def project_name(cls) -> str:
         raise NotImplementedError("Must set 'project_name'.")
 
-    @property
-    def login_workflow(self) -> type[LoginWorkflow]:
+    @classmethod
+    def login_workflow(cls) -> type[LoginWorkflow]:
         raise NotImplementedError(
             "Must create class inheriting from `LoginWorkflow` "
             "and assign type."
         )
 
-    @property
-    def compute_workflow(self) -> type[ComputeWorkflow]:
+    @classmethod
+    def compute_workflow(cls) -> type[ComputeWorkflow]:
         raise NotImplementedError(
             "Must create class inheriting from `ComputeWorkflow` "
             "and assign type."

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 
-class _RunnerStage(StrEnum):
+class RunnerStage(StrEnum):
     """Stages of cluster program."""
 
     LOGIN = auto()
@@ -161,7 +161,7 @@ class ClusterJsonEncoder(json.JSONEncoder):
 
     CUSTOM_ENCODING_TYPE_NAME_TO_TYPE: dict[str, type] = {
         "Path": Path,
-        "RunnerStage": _RunnerStage,
+        "RunnerStage": RunnerStage,
         "tuple": tuple,
     }
 
@@ -182,7 +182,7 @@ class ClusterJsonEncoder(json.JSONEncoder):
 
         if isinstance(item, Path):
             return {"__type__": "Path", "value": str(item)}
-        if isinstance(item, _RunnerStage):
+        if isinstance(item, RunnerStage):
             return {"__type__": "RunnerStage", "value": str(item)}
         if isinstance(item, tuple):
             return {"__type__": "tuple", "value": [cls._encode(i) for i in item]}

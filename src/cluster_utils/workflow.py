@@ -10,20 +10,24 @@ from cluster_utils.utils import staticclass
 
 @staticclass
 class LoginWorkflow(ABC):
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def jobs() -> list[type[SlurmJob]]:
+    def jobs(cls) -> list[type[SlurmJob]]:
         """Jobs to run. Order determines order of jobs submitted."""
         raise NotImplementedError()
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def pre_initialize(paths: LoginPaths) -> bool:
+    def pre_initialize(cls, paths: LoginPaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def transfer_input_to_run(input_path: Path, run_paths: RunPaths) -> bool:
+    def transfer_input_to_run(
+            cls,
+            input_path: Path,
+            run_paths: RunPaths,
+    ) -> bool:
         """Abstract method for handling the transfer of inputs to the run.
 
         Parameters
@@ -35,78 +39,78 @@ class LoginWorkflow(ABC):
         """
         raise NotImplementedError()
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def post_initialize(paths: LoginPaths) -> bool:
+    def post_initialize(cls, paths: LoginPaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def pre_job_submission(paths: LoginPaths) -> bool:
+    def pre_job_submission(cls, paths: LoginPaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def post_job_submission(paths: LoginPaths) -> bool:
+    def post_job_submission(cls, paths: LoginPaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def pre_post_process(paths: LoginPaths) -> bool:
+    def pre_post_process(cls, paths: LoginPaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def post_post_process(paths: LoginPaths) -> bool:
+    def post_post_process(cls, paths: LoginPaths) -> bool:
         return True
 
 
-@dataclass
+@staticclass
 class ComputeWorkflow(ABC):
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def pre_initialize(paths: ComputePaths) -> bool:
+    def pre_initialize(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def post_initialize(paths: ComputePaths) -> bool:
+    def post_initialize(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def pre_computation(paths: ComputePaths) -> bool:
+    def pre_computation(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def post_computation(paths: ComputePaths) -> bool:
+    def post_computation(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def pre_post_process(paths: ComputePaths) -> bool:
+    def pre_post_process(cls, paths: ComputePaths) -> bool:
         return True
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def post_post_process(paths: ComputePaths) -> bool:
+    def post_post_process(cls, paths: ComputePaths) -> bool:
         return True
 
 
-@dataclass
+@staticclass
 class FullWorkflow(ABC):
-    @property
+    @classmethod
     @abstractmethod
-    def project_name(self) -> str:
+    def project_name(cls) -> str:
         pass
 
-    @property
+    @classmethod
     @abstractmethod
-    def login_workflow(self) -> type[LoginWorkflow]:
+    def login_workflow(cls) -> type[LoginWorkflow]:
         pass
 
-    @property
+    @classmethod
     @abstractmethod
-    def compute_workflow(self) -> type[ComputeWorkflow]:
+    def compute_workflow(cls) -> type[ComputeWorkflow]:
         pass
