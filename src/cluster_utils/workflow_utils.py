@@ -5,6 +5,7 @@ import importlib.util
 import inspect
 import sys
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
@@ -85,7 +86,11 @@ class ArgParser(ABC):
         raise NotImplementedError()
 
     @classmethod
-    def from_args(cls, **kwargs) -> Self:
+    def from_args(
+            cls,
+            arguments: Iterable[str] | None = None,
+            **kwargs,
+    ) -> Self:
         """Create instance from command line arguments."""
 
         parser = argparse.ArgumentParser(
@@ -98,5 +103,5 @@ class ArgParser(ABC):
         for argument_source in cls.static_argument_sources():
             argument_source.add_arguments(parser)
 
-        args, _ = parser.parse_known_args()
+        args, _ = parser.parse_known_args(arguments)
         return cls.from_custom_args(args, **kwargs)

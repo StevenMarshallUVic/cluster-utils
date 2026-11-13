@@ -522,8 +522,13 @@ class _ClusterRunners:
     _workflow_class: type[FullWorkflow]
     _stage: RunnerStage
 
-    def run_stage(self) -> bool:
+    def run_stage(self, arguments: Iterable[str] | None = None) -> bool:
         """Perform stage of program.
+
+        Parameters
+        ----------
+        arguments
+            (Optional) When provided, uses given args instead of argv.
 
         Returns
         -------
@@ -535,16 +540,16 @@ class _ClusterRunners:
             case RunnerStage.LOGIN:
                 logger.info("Running login stage...")
                 _LoginRunner.full_workflow = self._workflow_class
-                return _LoginRunner.from_args().run()
+                return _LoginRunner.from_args(arguments).run()
             case RunnerStage.COMPUTE:
                 logger.info("Running compute stage...")
                 _ComputeRunner.full_workflow = self._workflow_class
-                return _ComputeRunner.from_args().run()
+                return _ComputeRunner.from_args(arguments).run()
             case _:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 
     @classmethod
-    def from_args(cls, **kwargs):
+    def from_args(cls, arguments: Iterable[str] | None = None, **kwargs):
         """Create an instance populated with command line arguments."""
 
         parser = argparse.ArgumentParser(
@@ -560,7 +565,7 @@ class _ClusterRunners:
             default=RunnerStage.LOGIN,
             action=EnumAction,
         )
-        args, _ = parser.parse_known_args()
+        args, _ = parser.parse_known_args(arguments)
 
         return cls(_stage=args.runner_stage, **kwargs)
 
@@ -704,8 +709,9 @@ def main(arguments: Iterable[str] | None = None) -> None:
     logger.debug("Arguments parsed!")
 
     if not _ClusterRunners.from_args(
+        arguments=arguments,
         _workflow_class=_find_user_workflow_class_from_args(arguments),
-    ).run_stage():
+    ).run_stage(arguments):
         logger.warning(
             "Something went wrong during running of stage."
             "See logs for details."
