@@ -1,5 +1,6 @@
 import logging
 import os
+from enum import StrEnum, auto
 from pathlib import Path
 
 SRC_ROOT_DIR = Path(__file__).parent
@@ -18,7 +19,16 @@ SLURM_TMP_DIR_ENV_VAR = "SLURM_TMPDIR"
 SLURM_JOB_NAME_ENV_VAR = "SLURM_JOB_NAME"
 SBATCH_ACCOUNT_ENV_VAR = "SBATCH_ACCOUNT"
 
-# TODO: Add additional logging throughout entire project
+
+class Cluster(StrEnum):
+    FIR = auto()
+    NARVAL = auto()
+    NIBI = auto()
+    RORQUAL = auto()
+    TRILLIUM = auto()
+    KILLARNEY = auto()
+    TAMIA = auto()
+    VULCAN = auto()
 
 
 def get_project_dir() -> Path:

@@ -218,7 +218,11 @@ class SlurmJob(ABC):
     @classmethod
     @abstractmethod
     def gpus(cls) -> str | None:
-        """Optional number and type of GPUs to allocate."""
+        """Optional type and number of GPUs to allocate.
+
+        The function `utils.slurm.get_gpus_for_cluster()` can be helpful
+        for finding valid GPUs on cluster to select from.
+        """
         return None
 
     @classmethod
