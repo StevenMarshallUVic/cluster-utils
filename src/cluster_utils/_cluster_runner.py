@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -16,7 +17,7 @@ from cluster_utils.utils.venv import VenvCreator, VenvPaths
 from cluster_utils.data import ArrayJobData, LoginPaths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
     SlurmJob, ComputePaths, ComputeNodePaths, RunPaths, AttemptPaths, \
-    ProjectPaths
+    ProjectPaths, SlurmDependencyType
 from cluster_utils.utils import EnumAction, RunnerStage, ArgParseable, \
     ON_CLUSTER, PythonPackage
 from cluster_utils.workflow import FullWorkflow
@@ -225,6 +226,10 @@ class _LoginRunner(ArgParser):
                     raise NotImplementedError(
                         f"Unsupported slurm job type: '{job.job_type}'."
                     )
+        self._submit_wait_job([
+            slurm_id for slurm_id in job_to_slurm_id.values()
+            if slurm_id is not None
+        ])
         return True
 
     def submit_array_job(
@@ -310,6 +315,47 @@ class _LoginRunner(ArgParser):
         """Submit a single slurm job to handle the compute portion of the job.
         """
         raise NotImplementedError()
+
+    def _submit_wait_job(self, dependency_ids: list[int]) -> None:
+        """Submit dummy job to make sure all previous jobs are complete before
+        performing post-processing.
+        """
+
+        # Skip dummy job creation if no other jobs were submitted this run
+        if len(dependency_ids) == 0:
+            return
+
+        dependencies = SlurmDependencies(
+            tuple([
+                SlurmDependency(
+                    SlurmDependencyType.AFTER_ANY,
+                    tuple(dependency_ids)
+                )
+            ]),
+            require_all_dependencies=True,
+        )
+        logger.info("Waiting for jobs to complete...")
+        with tempfile.NamedTemporaryFile(
+                mode="w+t",
+                suffix=".log",
+                delete_on_close=False,
+        ) as tmp:
+            # Flush and release file lock so subprocess can access
+            tmp.close()
+            subprocess.run(
+                [
+                    "sbatch",
+                    f"--dependency={dependencies.as_flag_value()}",
+                    "--time=00:01:00",
+                    "--mem=256M",
+                    f"--output={tmp.name}",
+                    f"--error={tmp.name}",
+                    "--wait",
+                    '--wrap="true"',
+                ],
+            )
+        logger.info("All jobs complete!")
+
 
     def post_process(self) -> bool:
         """Performing post-processing after the compute stage completes.
