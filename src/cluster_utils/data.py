@@ -19,8 +19,6 @@ from cluster_utils.utils.io import sanitize_name
 
 logger = init_logger(Path(__file__).name)
 
-SCRATCH_ENV_VAR = "SCRATCH"
-
 
 class SlurmJobType(StrEnum):
     SINGLE = auto()
@@ -480,20 +478,27 @@ class ProjectPaths(ArgParseable, JsonSerializable):
 
     Attributes
     ----------
+    account
+        Digital Research Alliance of Canada account to charge Slurm usage to.
     project_name
         Name of the project.
     project_dir
         Path to root directory of project.
     scratch_dir
         Path to root directory of scratch file system for a user.
+    home_dir
+        Path to root directory of home file system for a user.
     """
 
     account: str
     project_name: str
     project_dir: Path
     scratch_dir: Path
+    home_dir: Path
 
     ACCOUNT_TXT_NAME = ".account.txt"
+    HOME_ENV_VAR = "HOME"
+    SCRATCH_ENV_VAR = "SCRATCH"
 
     @property
     def account_file(self):
@@ -515,6 +520,10 @@ class ProjectPaths(ArgParseable, JsonSerializable):
     def runs_root_dir(self) -> Path:
         """Root directory where runs will be saved."""
         return self.scratch_project_dir / "runs"
+
+    @property
+    def home_cache_dir(self):
+        return self.home_dir / ".cache"
 
     @classmethod
     def construct_account_file_path(cls, project_sir: Path) -> Path:
@@ -583,7 +592,18 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             help="(Optional) Path to scratch directory on cluster. "
                  "When not supplied, retrieved from environment.",
             type=Path,
-            default=os.getenv(SCRATCH_ENV_VAR),
+            default=os.getenv(cls.SCRATCH_ENV_VAR),
+        )
+        add_argument_to_parser(
+            parser,
+            group,
+            prefix,
+            "--home-dir",
+            dest="home_dir",
+            help="(Optional) Path to home directory on cluster. "
+                 "When not supplied, retrieved from environment.",
+            type=Path,
+            default=os.getenv(cls.HOME_ENV_VAR),
         )
 
     @classmethod
@@ -614,8 +634,15 @@ class ProjectPaths(ArgParseable, JsonSerializable):
         if not args.scratch_dir:
             raise argparse.ArgumentError(
                 None,
-                f"Could not find '{SCRATCH_ENV_VAR}' in environment. "
-                "Must provide '--scratch-dir' when using '--input-path'."
+                f"Could not find '{cls.SCRATCH_ENV_VAR}' in "
+                f"environment. '--scratch-dir' flag must be provided."
+            )
+
+        if not args.home_dir:
+            raise argparse.ArgumentError(
+                None,
+                f"Could not find '{cls.HOME_ENV_VAR}' in environment. "
+                "'--home-dir' flag must be provided."
             )
 
         return cls.from_args(args, account=account, **fallbacks)
