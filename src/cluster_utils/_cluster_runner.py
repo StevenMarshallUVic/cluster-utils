@@ -259,7 +259,8 @@ class _LoginRunner(ArgParser):
             subprocess.list2cmdline([arg]) for arg in [
                 "cd", f"${SLURM_TMP_DIR_ENV_VAR}",
                 "&&", "module", "load", *config.compute_environment.modules,
-                "&&", "virtualenv", "--no-download", f"${SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}",
+                "&&", "virtualenv", "--app-data", f"${SLURM_TMP_DIR_ENV_VAR}/.cache",
+                    "--no-download", f"${SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}",
                 "&&", "source", f"${SLURM_TMP_DIR_ENV_VAR}/{CliComputePaths.VENV_NAME}/bin/activate",
                 "&&", "pip", "install", "--no-index", "--upgrade", "pip",
                 "&&", "pip", "install", "--no-index", self.paths.run_paths.cluster_utils_wheel, *[r.requirement_str for r in venv.requirements],
