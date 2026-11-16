@@ -425,24 +425,25 @@ class _ComputeRunner(ArgParser):
 
     @classmethod
     def _get_current_job(cls) -> type[SlurmJob]:
-        job_name = os.getenv(SLURM_JOB_NAME_ENV_VAR)
-        if job_name is None:
+        slurm_job_name = os.getenv(SLURM_JOB_NAME_ENV_VAR)
+        if slurm_job_name is None:
             raise RuntimeError(
                 f"Could not find '{SLURM_JOB_NAME_ENV_VAR}' in environment. "
                 "Are you sure this is being run on a compute node?"
             )
 
-        job_name_to_job = {
-            j.job_name(): j
+        slurm_job_name_to_job = {
+            j.slurm_job_name(): j
             for j in cls.full_workflow.login_workflow().jobs()
         }
-        if job_name not in job_name_to_job:
+        if slurm_job_name not in slurm_job_name_to_job:
             raise KeyError(
-                f"Could not find SlurmJob with name '{job_name}'. "
-                f"Jobs: {list(job_name_to_job.keys())}"
+                f"Could not find SlurmJob with slurm job name "
+                f"'{slurm_job_name}'. "
+                f"Jobs: {list(slurm_job_name_to_job.keys())}"
             )
 
-        return job_name_to_job[job_name]
+        return slurm_job_name_to_job[slurm_job_name]
 
     def run(self) -> bool:
         """Perform a compute run."""

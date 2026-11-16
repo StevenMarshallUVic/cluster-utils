@@ -180,6 +180,12 @@ class SlurmJob(ABC):
     @classmethod
     @abstractmethod
     def job_name(cls) -> str:
+        """Name of job. Will be used in file system and logs."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def slurm_job_name(cls) -> str:
         """Name of Slurm job. Will be shown in slurm job displays."""
         pass
 
@@ -373,7 +379,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
         log_file = paths.attempt_paths.get_job_log_file_path(self.job)
         args = [
             "sbatch",
-            f"--job-name={self.job.job_name()}",
+            f"--job-name={self.job.slurm_job_name()}",
             f"--account={paths.project_paths.account}",
             f"--cpus-per-task={self.cpus_per_task}",
             f"--mem={self.memory}",
