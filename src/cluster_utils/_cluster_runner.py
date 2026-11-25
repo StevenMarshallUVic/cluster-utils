@@ -345,11 +345,14 @@ class _LoginRunner(ArgParser):
             subprocess.run(
                 [
                     "sbatch",
-                    f"--dependency={dependencies.as_flag_value()}",
-                    "--time=00:01:00",
+                    f"--job-name={self.paths.project_paths.project_name}-wait",
+                    f"--account={self.paths.project_paths.account}",
+                    "--cpus-per-task=1",
                     "--mem=256M",
+                    "--time=00:01:00",
                     f"--output={tmp.name}",
                     f"--error={tmp.name}",
+                    f"--dependency={dependencies.as_flag_value()}",
                     "--wait",
                     '--wrap="true"',
                 ],
