@@ -28,8 +28,8 @@ logger = init_logger(Path(__file__).name)
 
 @dataclass(frozen=True)
 class _LoginRunner(ArgParser):
-    """Abstract class that handles running the portion of a run that occurs
-    in the background on a login node."""
+    """Handles running the portion of a run that occurs in the background
+    on a login node."""
 
     paths: LoginPaths
     job_name_to_slurm_params: dict[str, SlurmParams]
@@ -599,7 +599,11 @@ class _ClusterRunners:
                 raise ValueError(f"Unsupported runner stage: {stage}.")
 
     @classmethod
-    def from_args(cls, arguments: Iterable[str] | None = None, **kwargs):
+    def from_args(
+            cls,
+            arguments: Iterable[str] | None = None,
+            **kwargs
+    ) -> Self:
         """Create an instance populated with command line arguments."""
 
         parser = argparse.ArgumentParser(

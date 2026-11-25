@@ -76,7 +76,7 @@ def create_squashfs(
         return False
 
 
-def squashfuse_mount(squashfs_image: Path, mount_dir: Path):
+def squashfuse_mount(squashfs_image: Path, mount_dir: Path) -> bool:
     """Mount a SquashFS filesystem image to a directory using squashfuse.
 
     Parameters

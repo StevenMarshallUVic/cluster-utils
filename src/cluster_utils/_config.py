@@ -13,11 +13,12 @@ except ModuleNotFoundError:
 from dataclasses import dataclass
 from pathlib import Path
 # Cannot import Self due to cluster defaulting to python 3.9
-from typing import Any
+from typing import Any, TypeVar
 
 WORKFLOW_SCRIPT_TOML_FIELD_NAME = "workflow-script"
 
 
+_GlobalConfigType = TypeVar("_GlobalConfigType", bound="GlobalConfig")
 @dataclass(frozen=True)
 class GlobalConfig:
     workflow_script_rel_path: Path
@@ -26,7 +27,7 @@ class GlobalConfig:
         return (project_dir / self.workflow_script_rel_path).resolve()
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]):
+    def from_dict(cls, d: dict[str, Any]) -> _GlobalConfigType:
         instance = cls(
             workflow_script_rel_path=Path(
                 d.pop(WORKFLOW_SCRIPT_TOML_FIELD_NAME)
@@ -38,13 +39,17 @@ class GlobalConfig:
         return instance
 
 
+_EnvironmentConfigType = TypeVar(
+    "_EnvironmentConfigType",
+    bound="EnvironmentConfig"
+)
 @dataclass(frozen=True)
 class EnvironmentConfig:
     modules: tuple[str, ...]
     requirements_file: Path | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]):
+    def from_dict(cls, d: dict[str, Any]) -> _EnvironmentConfigType:
         requirements_file: str = d.pop(
             "python-requirements",
             "",
@@ -66,6 +71,7 @@ class EnvironmentConfig:
         return instance
 
 
+_ClusterConfigType = TypeVar("_ClusterConfigType", bound="ClusterConfig")
 @dataclass(frozen=True)
 class ClusterConfig:
     global_config: GlobalConfig
@@ -73,7 +79,7 @@ class ClusterConfig:
     compute_environment: EnvironmentConfig
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]):
+    def from_dict(cls, d: dict[str, Any]) -> _ClusterConfigType:
         global_table = d.pop("global")
         login_table = d.pop("login")
         compute_table = d.pop("compute")
@@ -92,7 +98,7 @@ class ClusterConfig:
         return instance
 
     @classmethod
-    def from_toml(cls, toml: Path):
+    def from_toml(cls, toml: Path) -> _ClusterConfigType:
         if not toml.is_file():
             raise FileNotFoundError(
                 f"Cluster config TOML not found at '{toml}'"

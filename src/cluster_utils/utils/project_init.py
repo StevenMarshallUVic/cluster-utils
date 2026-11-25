@@ -28,10 +28,10 @@ class ProjectInitParams(ArgParseable):
     no_input: bool = False
 
     @property
-    def project_paths(self):
+    def project_paths(self) -> ProjectPaths:
         return ProjectPaths(self.project_dir)
 
-    def relative_to_project(self, path: Path):
+    def relative_to_project(self, path: Path) -> Path:
         return self.project_dir.name / path.relative_to(self.project_dir)
 
     @classmethod

@@ -41,7 +41,7 @@ class VenvPaths:
     venv_dir: Path
 
     @property
-    def venv_bin_dir(self):
+    def venv_bin_dir(self) -> Path:
         """Path to directory containing virtual environment executables.
 
         Correctly handles path differences between Windows and Unix systems.
@@ -50,7 +50,7 @@ class VenvPaths:
         return self.venv_dir / ("bin" if os.name != "nt" else "Scripts")
 
     @property
-    def venv_activate_script(self):
+    def venv_activate_script(self) -> Path:
         """Path to directory containing virtual environment executables.
 
         Correctly handles path differences between Windows and Unix systems.
@@ -67,7 +67,7 @@ class VenvPaths:
                 ("activate" if os.name != "nt" else "activate.bat"))
 
     @property
-    def venv_python(self):
+    def venv_python(self) -> Path:
         """Path to virtual environment executable.
 
         Correctly handles path differences between Windows and Unix systems.
@@ -87,7 +87,7 @@ class ProjectPaths:
     VENV_DIR_NAME = ".venv"
 
     @property
-    def venv_paths(self):
+    def venv_paths(self) -> VenvPaths:
         return VenvPaths(self.project_dir / self.VENV_DIR_NAME)
 
     @property
@@ -105,28 +105,28 @@ class ProjectPaths:
         }
 
     @property
-    def account_txt(self):
+    def account_txt(self) -> Path:
         """Text file containing account to charge usage to for the project."""
         return self.project_dir / self.ACCOUNT_TXT_NAME
 
     @property
-    def cluster_config_toml(self):
+    def cluster_config_toml(self) -> Path:
         """TOML file containing configuration options for the project."""
         return self.project_dir / CLUSTER_CONFIG_TOML_NAME
 
     @property
-    def cluster_workflow_script(self):
+    def cluster_workflow_script(self) -> Path:
         """Python script where project workflow can be designed."""
         return self.src_dir / CLUSTER_WORKFLOW_SCRIPT_NAME
 
     @property
-    def log_file(self):
+    def log_file(self) -> Path:
         """Log file where log messages can be written to during runs."""
         # TODO: Figure out way to buffer log messages so this isn't needed
         return self.project_dir / self.LOG_FILE_NAME
 
     @property
-    def src_dir(self):
+    def src_dir(self) -> Path:
         """Root directory of source code for project."""
         return self.project_dir / "src"
 
@@ -168,5 +168,5 @@ class ComputePaths:
     VENV_NAME = ".venv"
 
     @property
-    def venv_dir(self):
+    def venv_dir(self) -> Path:
         return self.compute_dir / self.VENV_NAME

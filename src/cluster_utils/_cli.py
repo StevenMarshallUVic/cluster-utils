@@ -113,7 +113,7 @@ def update(arguments: Iterable[str] | None = None) -> None:
     logger.info("Virtual environment updated!")
 
 
-def perform_run(arguments: Iterable[str] | None = None):
+def perform_run(arguments: Iterable[str] | None = None) -> None:
     """Command for submitting a run from a login node.
 
     Parameters
@@ -123,7 +123,6 @@ def perform_run(arguments: Iterable[str] | None = None):
     """
     # TODO: Write tests
 
-    logger.info("Performing run...")
     logger.debug("Parsing run command line arguments...")
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
@@ -152,6 +151,7 @@ def perform_run(arguments: Iterable[str] | None = None):
         help_parser.parse_args(arguments)
         return
 
+    logger.info("Performing run...")
     if not is_project_paths_initialized(paths):
         raise RuntimeError(
             "Trying to perform run on project that has not been initialized. "
@@ -178,15 +178,17 @@ def perform_run(arguments: Iterable[str] | None = None):
             f"{' '.join(sys.argv[1:])}"
         ],
         env=os.environ.copy(),
+        stdin=subprocess.DEVNULL,
         stdout=log_fd,
         stderr=subprocess.STDOUT,
         close_fds=True,
+        start_new_session=True,
     )
     os.close(log_fd)
     exit(0)
 
 
-def perform_compute(arguments: Iterable[str] | None = None):
+def perform_compute(arguments: Iterable[str] | None = None) -> None:
     """Command for performing compute logic on a compute node.
 
     Parameters
@@ -195,7 +197,6 @@ def perform_compute(arguments: Iterable[str] | None = None):
         (Optional) When provided, uses given args instead of command line args.
     """
 
-    logger.info("Performing compute stage...")
     logger.debug("Parsing compute command line arguments...")
     from cluster_utils._cluster_runner import main, RunnerStage
     parser = argparse.ArgumentParser(add_help=False)
@@ -230,6 +231,7 @@ def perform_compute(arguments: Iterable[str] | None = None):
         help_parser.parse_args(arguments)
         return
 
+    logger.info("Performing compute stage...")
     main(
         arguments=[
             "--runner-stage", RunnerStage.COMPUTE.name,

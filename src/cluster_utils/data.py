@@ -128,7 +128,7 @@ class SlurmDependency:
     dependency_type: SlurmDependencyType
     job_ids: tuple[int, ...] | None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if (self.dependency_type == SlurmDependencyType.SINGLETON
                 and self.job_ids is not None):
             raise ValueError(
@@ -469,7 +469,7 @@ class SlurmParams(ArgParseable, JsonSerializable):
             cls,
             args: argparse.Namespace,
             **fallbacks: Any,
-    ):
+    ) -> Self:
         fallbacks.setdefault("batch_size", cls.job.default_batch_size())
         fallbacks.setdefault("memory", cls.job.default_memory())
         fallbacks.setdefault("time", cls.job.default_time())
@@ -511,7 +511,7 @@ class ProjectPaths(ArgParseable, JsonSerializable):
     SCRATCH_ENV_VAR = "SCRATCH"
 
     @property
-    def account_file(self):
+    def account_file(self) -> Path:
         """Default path to the account file for this project."""
         return self.construct_account_file_path(self.project_dir)
 
@@ -532,7 +532,7 @@ class ProjectPaths(ArgParseable, JsonSerializable):
         return self.scratch_project_dir / "runs"
 
     @property
-    def home_cache_dir(self):
+    def home_cache_dir(self) -> Path:
         return self.home_dir / ".cache"
 
     @classmethod
@@ -621,7 +621,7 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             cls,
             args: argparse.Namespace,
             **fallbacks: Any,
-    ):
+    ) -> Self:
         account = getattr(args, "account", None)
 
         # Try reading account from account file in project directory
@@ -708,11 +708,11 @@ class RunPaths(ArgParseable, JsonSerializable):
         return self.params_dir / "run_paths.json"
 
     @property
-    def cluster_utils_wheel_dir(self):
+    def cluster_utils_wheel_dir(self) -> Path:
         return self.params_dir / "cluster_utils_wheel"
 
     @property
-    def cluster_utils_wheel(self):
+    def cluster_utils_wheel(self) -> Path | None:
         wheel_dir_files = list(self.cluster_utils_wheel_dir.glob("*.whl"))
         if len(wheel_dir_files) != 1:
             logger.warning(
@@ -965,7 +965,7 @@ class RunPaths(ArgParseable, JsonSerializable):
             args: argparse.Namespace,
             run_dir: Path,
             **fallbacks: Any
-    ):
+    ) -> Self:
         """Create instance populated using data from a previous run.
 
         Parameters
@@ -994,7 +994,7 @@ class RunPaths(ArgParseable, JsonSerializable):
             input_path: Path,
             runs_root_dir: Path,
             **fallbacks: Any,
-    ):
+    ) -> Self:
         """Create instance populated using data from an input path.
 
         Parameters
@@ -1030,7 +1030,7 @@ class RunPaths(ArgParseable, JsonSerializable):
             args: argparse.Namespace,
             runs_root_dir: Path,
             **fallbacks: Any,
-    ):
+    ) -> Self:
         run_dir: Path | None = getattr(args, "run_dir", None)
         input_path: Path | None = getattr(args, "input_path", None)
 
@@ -1252,7 +1252,7 @@ class LoginPaths(ArgParseable, JsonSerializable):
             args: argparse.Namespace,
             project_name: str,
             **fallbacks: Any
-    ):
+    ) -> Self:
         project_paths = ProjectPaths.from_custom_args(
             args,
             project_name=project_name,
