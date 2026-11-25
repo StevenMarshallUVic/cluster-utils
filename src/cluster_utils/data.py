@@ -368,7 +368,10 @@ class SlurmParams(ArgParseable, JsonSerializable):
             paths.attempt_paths.get_array_job_data_dir_for_job(self.job),
         )
         if max_array_index is None:
-            return None
+            raise ValueError(
+                f"{remaining_input_files} inputs remaining "
+                f"but failed to find max array index."
+            )
 
         logger.info(
             "Creating array job command for %s proteins "

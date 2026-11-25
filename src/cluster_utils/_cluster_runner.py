@@ -272,11 +272,9 @@ class _LoginRunner(ArgParser):
             ] + (compute_job_args if compute_job_args is not None else [])
         ]
 
-        args = self.job_name_to_slurm_params[job.job_name()].build_array_job_command(
-            self.paths,
-            wrap_args,
-            dependencies,
-        )
+        args = self.job_name_to_slurm_params[
+            job.job_name()
+        ].build_array_job_command(self.paths, wrap_args, dependencies)
         if args is None:
             logger.info(
                 "No jobs to run for '%s', skipping array job submission!",
