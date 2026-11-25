@@ -97,6 +97,7 @@ class _LoginRunner(ArgParser):
         if not workflow.post_post_process(self.paths):
             return False
 
+        logger.info("Login stage completed successfully!")
         return True
 
     def _build_package_wheel(self) -> bool:
@@ -490,6 +491,7 @@ class _ComputeRunner(ArgParser):
         if not job.post_post_process(self.paths):
             return False
 
+        logger.info("Compute stage completed successfully!")
         return True
 
     def _initialize_file_structure(self) -> bool:
