@@ -10,29 +10,40 @@ except ModuleNotFoundError:
     # noinspection protected-member
     import pip._vendor.tomli as tomllib
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 # Cannot import Self due to cluster defaulting to python 3.9
 from typing import Any, TypeVar
 
 WORKFLOW_SCRIPT_TOML_FIELD_NAME = "workflow-script"
+DEFAULT_ACCOUNT_TOML_FIELD_NAME = "default-account"
+ADDITIONAL_VERSIONS_TOML_FIELD_NAME = "additional-versions"
 
 
-_GlobalConfigType = TypeVar("_GlobalConfigType", bound="GlobalConfig")
+_GeneralConfigType = TypeVar("_GeneralConfigType", bound="GeneralConfig")
 @dataclass(frozen=True)
-class GlobalConfig:
+class GeneralConfig:
     workflow_script_rel_path: Path
+    default_account: str | None = None
+    additional_versions: dict[str, str] = field(default_factory=dict)
 
     def get_workflow_script_path(self, project_dir: Path) -> Path:
         return (project_dir / self.workflow_script_rel_path).resolve()
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> _GlobalConfigType:
+    def from_dict(cls, d: dict[str, Any]) -> _GeneralConfigType:
+        account = d.pop(DEFAULT_ACCOUNT_TOML_FIELD_NAME, None)
+        if account is not None and account.strip() == "":
+            account = None
+
         instance = cls(
             workflow_script_rel_path=Path(
                 d.pop(WORKFLOW_SCRIPT_TOML_FIELD_NAME)
             ),
+            default_account=account,
+            additional_versions=d.pop(ADDITIONAL_VERSIONS_TOML_FIELD_NAME, {}),
         )
+
         if len(d) != 0:
             raise ValueError(f"Remaining values: {d}.")
 
@@ -71,10 +82,10 @@ class EnvironmentConfig:
         return instance
 
 
-_ClusterConfigType = TypeVar("_ClusterConfigType", bound="ClusterConfig")
+_ClusterConfigType = TypeVar("_ClusterConfigType", bound="ClusterUtilsConfig")
 @dataclass(frozen=True)
-class ClusterConfig:
-    global_config: GlobalConfig
+class ClusterUtilsConfig:
+    general_config: GeneralConfig
     login_environment: EnvironmentConfig
     compute_environment: EnvironmentConfig
 
@@ -84,7 +95,7 @@ class ClusterConfig:
         login_table = d.pop("login")
         compute_table = d.pop("compute")
         instance = cls(
-            global_config=GlobalConfig.from_dict(global_table),
+            general_config=GeneralConfig.from_dict(global_table),
             login_environment=EnvironmentConfig.from_dict(
                 login_table.pop("environment")
             ),

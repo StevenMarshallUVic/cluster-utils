@@ -16,16 +16,16 @@ from pathlib import Path
 
 from cluster_utils import SRC_ROOT_DIR
 
-CLUSTER_CONFIG_TOML_NAME = "cluster_config.toml"
+TEMPLATE_PREFIX = "template_"
+PYPROJECT_TOML_NAME = "pyproject.toml"
 CLUSTER_WORKFLOW_SCRIPT_NAME = "cluster_workflow.py"
 
 
 class SrcPaths:
-    SCRIPTS_DIR = SRC_ROOT_DIR / "scripts"
     TEMPLATES_DIR = SRC_ROOT_DIR / "templates"
 
-    CLUSTER_CONFIG_TOML = TEMPLATES_DIR / CLUSTER_CONFIG_TOML_NAME
-    CLUSTER_WORKFLOW_SCRIPT = TEMPLATES_DIR / CLUSTER_WORKFLOW_SCRIPT_NAME
+    PYPROJECT_TOML = TEMPLATES_DIR / (TEMPLATE_PREFIX + PYPROJECT_TOML_NAME)
+    CLUSTER_WORKFLOW_SCRIPT = TEMPLATES_DIR / (TEMPLATE_PREFIX + CLUSTER_WORKFLOW_SCRIPT_NAME)
 
 
 @dataclass(frozen=True)
@@ -82,7 +82,6 @@ class VenvPaths:
 class ProjectPaths:
     project_dir: Path
 
-    ACCOUNT_TXT_NAME = ".account.txt"
     LOG_FILE_NAME = "last_run.log"
     VENV_DIR_NAME = ".venv"
 
@@ -100,19 +99,14 @@ class ProjectPaths:
         """Mapping between template source files and their corresponding
         locations within an initialized project."""
         return {
-            SrcPaths.CLUSTER_CONFIG_TOML: self.cluster_config_toml,
+            SrcPaths.PYPROJECT_TOML: self.pyproject_toml,
             SrcPaths.CLUSTER_WORKFLOW_SCRIPT: self.cluster_workflow_script
         }
 
     @property
-    def account_txt(self) -> Path:
-        """Text file containing account to charge usage to for the project."""
-        return self.project_dir / self.ACCOUNT_TXT_NAME
-
-    @property
-    def cluster_config_toml(self) -> Path:
+    def pyproject_toml(self) -> Path:
         """TOML file containing configuration options for the project."""
-        return self.project_dir / CLUSTER_CONFIG_TOML_NAME
+        return self.project_dir / PYPROJECT_TOML_NAME
 
     @property
     def cluster_workflow_script(self) -> Path:
@@ -150,15 +144,6 @@ class ProjectPaths:
             template_path.write_text(
                 src_path.read_text()
             )
-
-    def write_account(self, account: str) -> None:
-        """Write an account to the account file.
-
-        Notes
-        -----
-        Overwrites previous contents if account file already existed.
-        """
-        self.account_txt.write_text(account)
 
 
 @dataclass(frozen=True)

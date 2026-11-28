@@ -5,17 +5,22 @@ import argparse
 import os
 import shutil
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto, StrEnum
+from importlib.metadata import version
 from math import ceil
 from pathlib import Path
 from typing import Any, ClassVar, cast, Self
 
+from packaging.version import Version
+
 from cluster_utils import init_logger, get_project_dir, SLURM_TMP_DIR_ENV_VAR, \
-    SLURM_ARRAY_JOB_INDEX_ENV_VAR, SBATCH_ACCOUNT_ENV_VAR
+    SLURM_ARRAY_JOB_INDEX_ENV_VAR, SBATCH_ACCOUNT_ENV_VAR, PACKAGE_NAME
 from cluster_utils.utils import ArgParseable, JsonSerializable, staticclass
 from cluster_utils.utils.io import sanitize_name
+from cluster_utils.utils.venv import get_project_version
+from cluster_utils._config import ClusterUtilsConfig
 
 logger = init_logger(Path(__file__).name)
 
@@ -486,6 +491,34 @@ class SlurmParams(ArgParseable, JsonSerializable):
 
 
 @dataclass(frozen=True)
+class AttemptMetadata(JsonSerializable):
+    """Metadata for an attempt of a run.
+
+    Attributes
+    ----------
+    cluster_utils_version
+        Version of this package that was used for the attempt.
+    project_version
+        Version of the project using this package that was used for the attempt.
+    additional_versions
+        Any additional versions relevant to the program.
+    start_time
+        The datetime that this attempt was started at.
+    """
+
+    cluster_utils_version: Version = Version(version(PACKAGE_NAME))
+    project_version: Version = get_project_version()
+    additional_versions: dict[str, str] = field(default_factory=dict)
+    start_time: datetime = datetime.now()
+
+    @classmethod
+    def from_config(cls, config: ClusterUtilsConfig) -> Self:
+        return cls(
+            additional_versions=config.general_config.additional_versions,
+        )
+
+
+@dataclass(frozen=True)
 class ProjectPaths(ArgParseable, JsonSerializable):
     """Paths for the project.
 
@@ -509,14 +542,13 @@ class ProjectPaths(ArgParseable, JsonSerializable):
     scratch_dir: Path
     home_dir: Path
 
-    ACCOUNT_TXT_NAME = ".account.txt"
     HOME_ENV_VAR = "HOME"
     SCRATCH_ENV_VAR = "SCRATCH"
 
     @property
-    def account_file(self) -> Path:
-        """Default path to the account file for this project."""
-        return self.construct_account_file_path(self.project_dir)
+    def pyproject_toml(self) -> Path:
+        """TOML file containing configuration options for project."""
+        return self.project_dir / "pyproject.toml"
 
     @property
     def src_dir(self) -> Path:
@@ -539,31 +571,6 @@ class ProjectPaths(ArgParseable, JsonSerializable):
         return self.home_dir / ".cache"
 
     @classmethod
-    def construct_account_file_path(cls, project_sir: Path) -> Path:
-        return project_sir / cls.ACCOUNT_TXT_NAME
-
-    @staticmethod
-    def read_account_from_file(account_file: Path) -> str | None:
-        """Parse an account from a plain-text file containing the account.
-
-        Parameters
-        ----------
-        account_file
-            Path to a plain-text file containing an account.
-
-        Returns
-        -------
-        str | None
-            The account if the file exists, or None if not.
-        """
-
-        if not account_file.is_file():
-            return None
-
-        account = open(account_file).read().strip()
-        return account
-
-    @classmethod
     def add_arguments(
             cls,
             parser: argparse.ArgumentParser,
@@ -582,7 +589,7 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             help=f"(Optional) Digital Research Alliance of Canada account to "
                  f"charge usage to. "
                  f"When not supplied, attempts to find value "
-                 f"in account file or environment.",
+                 f"in pyproject.toml or environment.",
             type=str,
         )
         add_argument_to_parser(
@@ -625,25 +632,6 @@ class ProjectPaths(ArgParseable, JsonSerializable):
             args: argparse.Namespace,
             **fallbacks: Any,
     ) -> Self:
-        account = getattr(args, "account", None)
-
-        # Try reading account from account file in project directory
-        if not account:
-            project_dir = getattr(args, "project_dir")
-            account = cls.read_account_from_file(
-                cls.construct_account_file_path(project_dir)
-            )
-
-        # Try getting account from environment variable
-        if not account:
-            account = os.getenv(SBATCH_ACCOUNT_ENV_VAR)
-
-        if not account:
-            raise RuntimeError(
-                "Account file not found. "
-                "'--account' flag must be provided."
-            )
-
         if not args.scratch_dir:
             raise argparse.ArgumentError(
                 None,
@@ -658,7 +646,27 @@ class ProjectPaths(ArgParseable, JsonSerializable):
                 "'--home-dir' flag must be provided."
             )
 
+        account = getattr(args, "account", None)
+
+        # Use value from pyproject.toml
+        if not account:
+            # Create placeholder instance to allow access to paths
+            tmp = cls.from_args(args, account="PLACEHOLDER", **fallbacks)
+            metadata = ProjectMetadata.from_toml(tmp.pyproject_toml)
+            account = metadata.default_account
+
+        # Try getting account from environment variable
+        if not account:
+            account = os.getenv(SBATCH_ACCOUNT_ENV_VAR)
+
+        if not account:
+            raise RuntimeError(
+                "Account file not found. "
+                "'--account' flag must be provided."
+            )
+
         return cls.from_args(args, account=account, **fallbacks)
+
 
 @dataclass(frozen=True)
 class RunPaths(ArgParseable, JsonSerializable):
@@ -1085,6 +1093,11 @@ class AttemptPaths(JsonSerializable):
     ATTEMPT_DIR_PREFIX = "attempt_"
 
     @property
+    def metadata_json(self):
+        """JSON file holding metadata for this attempt."""
+        return self.attempt_dir / "attempt_metadata.json"
+
+    @property
     def logs_dir(self) -> Path:
         """Directory where log files will be written to for this attempt."""
         return self.attempt_dir / "logs"
@@ -1124,7 +1137,25 @@ class AttemptPaths(JsonSerializable):
         logger.debug("Initializing attempt directory...")
         self.attempt_dir.mkdir(parents=True)
         self.logs_dir.mkdir(parents=True)
+        self._generate_metadata_json()
         logger.debug("Attempt directory initialized!")
+
+    def generate_metadata_json(self, metadata: AttemptMetadata) -> None:
+        """Create JSON for storing metadata for
+
+        Parameters
+        ----------
+        metadata
+            Metadata to write JSON for.
+        """
+
+        if self.metadata_json.is_file():
+            raise FileExistsError(
+                f"Attempt metadata file already exists at "
+                f"'{self.metadata_json}'."
+            )
+
+        metadata.to_json(self.metadata_json, indent=2)
 
     @classmethod
     def calculate_next_attempt_index(cls, attempts_dir: Path) -> int:
@@ -1196,13 +1227,19 @@ class LoginPaths(ArgParseable, JsonSerializable):
             - Run directory creation
             - Attempt directory creation
             - Output directory creation
+            - Attempt metadata JSON creation
         """
 
-        logger.debug("Initializing run paths...")
+        logger.debug("Initializing run...")
         self.run_paths.initialize_run_dir()
         self.run_paths.initialize_output_dir()
         self.attempt_paths.initialize_attempt_dir()
-        logger.debug("Run paths initialized!")
+        self.attempt_paths.generate_metadata_json(
+            AttemptMetadata.from_config(
+                ClusterUtilsConfig.from_toml(self.project_paths.pyproject_toml),
+            ),
+        )
+        logger.debug("Run initialized!")
 
     @staticmethod
     def compress_and_delete_dir(

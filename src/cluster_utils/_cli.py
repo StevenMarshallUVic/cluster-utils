@@ -13,9 +13,9 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from cluster_utils import get_project_dir, init_logger, VENV_ENV_VAR
-from cluster_utils._config import ClusterConfig, EnvironmentConfig
-from cluster_utils._paths import ProjectPaths, VenvPaths
+from cluster_utils import get_project_dir, init_logger
+from cluster_utils._config import ClusterUtilsConfig
+from cluster_utils._paths import ProjectPaths
 from cluster_utils.data import add_argument_to_parser
 from cluster_utils.utils import PythonPackage, ON_CLUSTER
 from cluster_utils.utils import io, project_init
@@ -92,13 +92,13 @@ def update(arguments: Iterable[str] | None = None) -> None:
 
     logger.debug("Reading data from arguments...")
     paths = ProjectPaths(args.project_dir)
-    if not paths.cluster_config_toml.is_file():
+    if not paths.pyproject_toml.is_file():
         raise FileNotFoundError(
-            f"Could not find config TOML at '{paths.cluster_config_toml}'. "
+            f"Could not find config TOML at '{paths.pyproject_toml}'. "
             "Have you run `cluster-init` on this project?"
         )
 
-    config = ClusterConfig.from_toml(paths.cluster_config_toml)
+    config = ClusterUtilsConfig.from_toml(paths.pyproject_toml)
     requirements_file = config.login_environment.requirements_file
     logger.debug("Data read!")
 
@@ -158,7 +158,7 @@ def perform_run(arguments: Iterable[str] | None = None) -> None:
             "Run `cluster-init` first to initialize project file structure."
         )
 
-    config = ClusterConfig.from_toml(paths.cluster_config_toml)
+    config = ClusterUtilsConfig.from_toml(paths.pyproject_toml)
     if ON_CLUSTER:
         logger.info("Initializing modules...")
         LmodModuleLoader().purge_and_load_modules(
@@ -241,10 +241,7 @@ def perform_compute(arguments: Iterable[str] | None = None) -> None:
     logger.info("Compute stage complete!")
 
 
-def is_project_paths_initialized(
-        paths: ProjectPaths,
-        account: str | None = None,
-) -> bool:
+def is_project_paths_initialized(paths: ProjectPaths) -> bool:
     """Determine whether a project directory structure reflects a
     properly initialized project.
 
@@ -252,8 +249,6 @@ def is_project_paths_initialized(
     ----------
     paths
         Paths for project.
-    account
-        Account that is expected to be found in account file.
 
     Returns
     -------
@@ -271,27 +266,10 @@ def is_project_paths_initialized(
             )
         return False
 
-    if account:
-        if not paths.account_txt.is_file():
-            logger.warning(
-                "Account file not found at '%s'.",
-                paths.account_txt,
-            )
-            return False
-
-        if not io.does_file_contain_exactly(paths.account_txt, account):
-            logger.warning(
-                "Account file expected to contain '%s', found '%s'.",
-                paths.account_txt,
-            )
-            return False
     return True
 
 
-def is_project_dir_initialized(
-        project_dir: Path,
-        account: str | None = None,
-) -> bool:
+def is_project_dir_initialized(project_dir: Path) -> bool:
     """Determine whether a project directory structure reflects a
     properly initialized project.
 
@@ -299,8 +277,6 @@ def is_project_dir_initialized(
     ----------
     project_dir
         Root directory of the project.
-    account
-        Account that is expected to be found in account file.
 
     Returns
     -------
@@ -309,4 +285,4 @@ def is_project_dir_initialized(
         initialized project.
     """
 
-    return is_project_paths_initialized(ProjectPaths(project_dir), account)
+    return is_project_paths_initialized(ProjectPaths(project_dir))

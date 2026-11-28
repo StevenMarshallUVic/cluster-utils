@@ -1,14 +1,20 @@
 """Tests for venv module."""
 
 import os
+from importlib.metadata import version
 
 import pytest
+from packaging.version import Version
 
 from cluster_utils import PACKAGE_URL, PACKAGE_NAME
-from cluster_utils._paths import ProjectPaths, VenvPaths
-from cluster_utils.utils.venv import VenvCreator, PythonPackage, CLUSTER_UTILS_PACKAGE
+from cluster_utils._paths import VenvPaths
+from cluster_utils.utils.venv import VenvCreator, PythonPackage, CLUSTER_UTILS_PACKAGE, get_project_version
 
 VENV_ENV_VAR = "VIRTUAL_ENV"
+
+
+def test_get_project_version():
+    assert get_project_version() == Version(version(PACKAGE_NAME))
 
 
 class TestVenvCreator:

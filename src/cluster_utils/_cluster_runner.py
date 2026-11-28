@@ -5,19 +5,20 @@ import subprocess
 import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass, asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Self, ClassVar, Any
 
 from cluster_utils import get_environment_default_log_level, init_logger, \
     SLURM_JOB_NAME_ENV_VAR, SLURM_TMP_DIR_ENV_VAR, PACKAGE_URL
-from cluster_utils._config import ClusterConfig, WORKFLOW_SCRIPT_TOML_FIELD_NAME
+from cluster_utils._config import ClusterUtilsConfig, WORKFLOW_SCRIPT_TOML_FIELD_NAME
 from cluster_utils._paths import ComputePaths as CliComputePaths
 from cluster_utils._paths import ProjectPaths as CliProjectPaths
 from cluster_utils.utils.venv import VenvCreator, VenvPaths
 from cluster_utils.data import ArrayJobData, LoginPaths, SlurmParams, \
     SlurmJobType, SlurmDependencies, SlurmDependency, ArrayJobInstanceParams, \
     SlurmJob, ComputePaths, ComputeNodePaths, RunPaths, AttemptPaths, \
-    ProjectPaths, SlurmDependencyType
+    ProjectPaths, SlurmDependencyType, AttemptMetadata
 from cluster_utils.utils import EnumAction, RunnerStage, ArgParseable, \
     ON_CLUSTER, PythonPackage
 from cluster_utils.workflow import FullWorkflow
@@ -119,7 +120,7 @@ class _LoginRunner(ArgParser):
             self.paths.run_paths.cluster_utils_wheel_dir
         )
         whl_file = self.paths.run_paths.cluster_utils_wheel
-        return whl_file and whl_file.is_file()
+        return whl_file is not None and whl_file.is_file()
 
     def _initialize_input_dir(self) -> bool:
         """Initialize input directory.
@@ -246,7 +247,7 @@ class _LoginRunner(ArgParser):
         )
         compute_job_args = job.compute_job_args()
         cli_project_paths = CliProjectPaths(self.paths.project_paths.project_dir)
-        config = ClusterConfig.from_toml(cli_project_paths.cluster_config_toml)
+        config = ClusterUtilsConfig.from_toml(cli_project_paths.pyproject_toml)
 
         requirements_file = config.compute_environment.requirements_file
         venv = VenvCreator(
@@ -367,7 +368,57 @@ class _LoginRunner(ArgParser):
         -------
         Whether post-processing was successful.
         """
+
+        self._log_metadata()
         return True
+
+    def _log_metadata(self) -> None:
+        """Write log message summarizing metadata about attempts of run."""
+
+        metadatas: set[AttemptMetadata] = {
+            AttemptMetadata.from_json(self.paths.attempt_paths.metadata_json),
+        }
+        for attempt_index in range(1, self.paths.attempt_paths.attempt_index):
+            attempt_paths = AttemptPaths.from_attempt_index(
+                self.paths.run_paths.attempts_dir,
+                attempt_index,
+            )
+            metadatas.add(
+                AttemptMetadata.from_json(attempt_paths.metadata_json)
+            )
+
+        cluster_versions = {m.cluster_utils_version for m in metadatas}
+        project_versions = {m.project_version for m in metadatas}
+        additional_versions: dict[str, set[str]] = {}
+        for metadata in metadatas:
+            for key, value in metadata.additional_versions.items():
+                additional_versions.setdefault(key, set()).add(value)
+
+        logger.info(
+            "This run was performed between %s and %s using:"
+            "\n\t- cluster-utils %s"
+            "\n\t- %s %s"
+            "%s",
+            min([m.start_time for m in metadatas]),
+            datetime.now(),
+            cluster_versions[0] if len(cluster_versions) == 1 else " - ".join([
+                str(min([cluster_versions])),
+                str(max([cluster_versions]))
+            ]),
+            self.paths.project_paths.project_name,
+            project_versions[0] if len(project_versions) == 1 else " - ".join([
+                str(min([project_versions])),
+                str(max([project_versions]))
+            ]),
+            "\n\t" + "\n\t- ".join([
+                f"{name} {versions[0] if len(cluster_versions) == 1 
+                else " - ".join([
+                    str(min([cluster_versions])),
+                    str(max([cluster_versions]))
+                ])}"
+                for name, versions in additional_versions.itmes()
+            ]) if len(additional_versions) > 0 else "",
+        )
 
     @classmethod
     def from_custom_args(cls, args: argparse.Namespace, **kwargs) -> Self:
@@ -705,15 +756,15 @@ def _find_user_workflow_class_from_args(
 
     args, _ = _build_argument_parser().parse_known_args(arguments)
     paths = CliProjectPaths(args.project_dir)
-    if not paths.cluster_config_toml.is_file():
+    if not paths.pyproject_toml.is_file():
         raise FileNotFoundError(
-            f"Could not find config TOML at '{paths.cluster_config_toml}'. "
+            f"Could not find config TOML at '{paths.pyproject_toml}'. "
             "Have you run `cluster-init` on this project?"
         )
-    config = ClusterConfig.from_toml(paths.cluster_config_toml)
+    config = ClusterUtilsConfig.from_toml(paths.pyproject_toml)
 
     return _find_user_workflow_class(
-        config.global_config.get_workflow_script_path(paths.project_dir)
+        config.general_config.get_workflow_script_path(paths.project_dir)
     )
 
 

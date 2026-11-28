@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class ProjectInitParams(ArgParseable):
     project_dir: Path
-    account: str | None = None
     force: bool = False
-    no_input: bool = False
 
     @property
     def project_paths(self) -> ProjectPaths:
@@ -41,17 +39,6 @@ class ProjectInitParams(ArgParseable):
             group: argparse._ArgumentGroup | None = None,
             prefix: str | None = None,
     ) -> None:
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "-a", ACCOUNT_FLAG,
-            help="(Optional) Account to charge slurm usage to. "
-                 "If not provided, you may be required to specify an account "
-                 "when submitting a run.",
-            type=str,
-            required=False,
-        )
         add_argument_to_parser(
             parser,
             group,
@@ -74,47 +61,6 @@ class ProjectInitParams(ArgParseable):
             action=argparse.BooleanOptionalAction,
             default=False,
         )
-        add_argument_to_parser(
-            parser,
-            group,
-            prefix,
-            "--no-input",
-            help="(Optional) Bypass any manual input prompts.",
-            action="store_true",
-        )
-
-
-def _update_init_from_user_input(init: ProjectInitParams) -> ProjectInitParams:
-    """Update initialization parameters with manual user input.
-
-    Parameters
-    ----------
-    init
-        Parameters to update.
-
-    Returns
-    -------
-    ProjectInitParams
-        Parameters with their values updated from user input.
-    """
-
-    if init.no_input:
-        return init
-
-    account = init.account
-    if account is None:
-        logger.warning(
-            f"`{ACCOUNT_FLAG}` flag not provided. "
-            "Please specify Digital Research Alliance of Canada account "
-            "to charge usage to (e.g. 'def-name')?"
-        )
-        user_account = input(
-            "INPUT: Account (leave blank to skip): "
-        )
-        if user_account:
-            account = user_account
-
-    return replace(init, account=account)
 
 
 def _check_for_existing_template_files(
@@ -136,38 +82,36 @@ def _check_for_existing_template_files(
         and `init.force` is False.
     """
 
-    files_to_check = init.project_paths.template_paths
-    if init.account:
-        files_to_check.append(init.project_paths.account_txt)
+    existing_files = io.get_existing_files(init.project_paths.template_paths)
+    if len(existing_files) == 0:
+        return
 
-    existing_files = io.get_existing_files(files_to_check)
-    if existing_files:
-        existing_log_str = log_separator.join([
-            str(init.relative_to_project(f)) for f in existing_files
-        ])
-        if add_separator_to_start:
-            existing_log_str = log_separator + existing_log_str
-        if init.force:
-            logger.warning(
-                "One or more initialization files already exists "
-                "in this directory, overwriting: %s.",
-                existing_log_str,
-            )
-        else:
-            raise FileExistsError(
-                "One or more initialization files already exists in "
-                f"this directory, skipping initialization: "
-                f"{existing_log_str}."
-                "\nIf you want to overwrite these files, "
-                "use the `-f`/`--force` flag."
-            )
+    existing_log_str = log_separator.join([
+        str(init.relative_to_project(f)) for f in existing_files
+    ])
+    if add_separator_to_start:
+        existing_log_str = log_separator + existing_log_str
+    if init.force:
+        logger.warning(
+            "One or more initialization files already exists "
+            "in project, overwriting: %s.",
+            existing_log_str,
+        )
+    else:
+        raise FileExistsError(
+            "One or more initialization files already exists in "
+            f"project, skipping initialization: "
+            f"{existing_log_str}."
+            "\nIf you want to overwrite these files, "
+            "use the `-f`/`--force` flag."
+        )
 
 
 def _write_project_files(init: ProjectInitParams) -> None:
     init.project_paths.copy_templates_to_project()
     logger.info(
         "Config created at '%s'.",
-        init.relative_to_project(init.project_paths.cluster_config_toml),
+        init.relative_to_project(init.project_paths.pyproject_toml),
     )
     logger.info(
         "Workflow script created at '%s'. "
@@ -176,12 +120,6 @@ def _write_project_files(init: ProjectInitParams) -> None:
             init.project_paths.cluster_workflow_script
         ),
     )
-    if init.account:
-        init.project_paths.write_account(init.account)
-        logger.info(
-            "Account file created at '%s'.",
-            init.relative_to_project(init.project_paths.account_txt),
-        )
 
 
 def initialize_project(init: ProjectInitParams) -> None:
@@ -194,6 +132,5 @@ def initialize_project(init: ProjectInitParams) -> None:
     logger.debug("Existing template files checked!")
 
     logger.info("Writing project files...")
-    init = _update_init_from_user_input(init)
     _write_project_files(init)
     logger.info("Project files written!")

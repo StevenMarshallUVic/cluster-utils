@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from packaging.version import Version
+
 from cluster_utils import PACKAGE_NAME, PACKAGE_URL, init_logger
 from cluster_utils._paths import VenvPaths
 from cluster_utils.utils import PythonPackage, ON_CLUSTER
@@ -21,6 +23,25 @@ CLUSTER_UTILS_PACKAGE = PythonPackage(
     name=PACKAGE_NAME,
     link=PACKAGE_URL,
 )
+
+
+def get_project_version() -> Version:
+    """Get the current version of the current project.
+
+    Uses `setuptools_scm` to parse version from `pyproject.toml`
+
+    Returns
+    -------
+    Version
+        Version of the project.
+    """
+
+    process = subprocess.run(
+        ["python", "-m", "setuptools_scm"],
+        capture_output=True,
+        text=True,
+    )
+    return Version(process.stdout.strip())
 
 
 @dataclass(frozen=True)

@@ -1,10 +1,11 @@
 [build-system]
-requires = ["setuptools >= 77.0.3"]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cam-cluster-utils"
-version = "1.0.0b188"
+dynamic = ["version"]
+requires-python = ">=3.15"
 authors = [
   { name="Steven Marshall", email="stevenmarshall@uvic.ca" },
 ]
@@ -16,6 +17,15 @@ classifiers = [
 ]
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
+dependencies = [
+    "packaging",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "setuptools-scm",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
